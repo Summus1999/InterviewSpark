@@ -1,0 +1,25 @@
+# Rust build output
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Only ignore .qoder/rules, keep other .qoder files
+.qoder/
+!.qoder/
+.qoder/*
+!.qoder/rules
