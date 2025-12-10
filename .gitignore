@@ -1,6 +1,11 @@
+# Node.js
+node_modules/
+
+# Build output
+dist/
+
 # Rust build output
 src-tauri/target/
-src-tauri/Cargo.lock
 
 # IDE and Editor
 .vscode/
