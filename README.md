@@ -36,7 +36,7 @@ npm run tauri build
 
 ## 项目结构
 
-```
+```bash
 src/           # Vue 3 前端
 src-tauri/     # Rust 后端
   src/         # Rust 源码
