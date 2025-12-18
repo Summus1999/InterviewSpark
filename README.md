@@ -73,7 +73,15 @@ npm run format
    - 点击 "开始面试" 开始答题
    - 输入答案并点击 "提交答案" 获取 AI 反馈
 
-4. **编译测试**
+4. **测试语音功能**
+   - 开始面试后，AI 会自动语音播报问题
+   - 点击 "语音回答" 按钮，说出你的答案
+   - 识别结果会自动填入答题框
+   - 点击 "播放问题" 可重复播放当前问题
+   - 语音设置可调节语速和音量
+   - **注意**: 需要浏览器支持 (Chrome/Edge 推荐)
+
+5. **编译测试**
    ```bash
    # 前端构建
    npm run build
@@ -90,6 +98,9 @@ npm run format
 | IPC 调用失败 | 检查 Rust 后端是否正常编译，查看终端错误信息 |
 | 编译错误 | 确保已安装 Rust 和 Visual Studio C++ Build Tools |
 | 依赖安装失败 | 删除 node_modules 后重新运行 `npm install` |
+| 语音播放无声 | 检查系统音量设置和浏览器音频权限 |
+| 语音识别不工作 | 确认浏览器支持 Web Speech API（Chrome/Edge）|
+| 麦克风权限 | 首次使用时需在浏览器中允许麦克风访问 |
 
 ## 构建
 
@@ -116,8 +127,10 @@ src/                      # Vue 3 前端代码
     QuestionList.vue      # 问题列表展示组件
     InterviewHistory.vue  # 历史记录查看组件
     QuestionBank.vue      # 题库管理组件
+    VoiceControls.vue     # 语音控制组件
   services/               # 服务层
     database.ts           # 数据库服务接口
+    voice.ts              # 语音服务（TTS/ASR）
 src-tauri/                # Rust 后端代码
   src/
     lib.rs                # Tauri 应用入口和命令定义
@@ -149,6 +162,7 @@ ProductionDoc.md          # 产品文档
 - **代码规范**: ESLint + Prettier
 - **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)
 - **数据库**: SQLite + rusqlite
+- **语音能力**: Web Speech API (TTS + ASR)
 - **HTTP 客户端**: reqwest
 - **异步运行时**: tokio
 
