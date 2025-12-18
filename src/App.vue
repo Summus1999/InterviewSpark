@@ -1,15 +1,13 @@
 <template>
-  <div
-    id="app"
-    class="app-container"
-  >
+  <div id="app" class="app-container">
     <header>
       <h1>InterviewSpark</h1>
       <p>AI-Powered Mock Interview Platform</p>
     </header>
     <main>
-      <section class="welcome">
-        <h2>Welcome to InterviewSpark</h2>
+      <!-- Phase 1 Test Section -->
+      <section v-if="showTest" class="welcome">
+        <h2>IPC Connection Test</h2>
         <p>Prepare for your interviews with AI-powered mock interviews and intelligent feedback.</p>
 
         <div class="demo-section">
@@ -33,17 +31,154 @@
           </p>
         </div>
       </section>
+
+      <!-- Phase 2: Interview Mode -->
+      <section v-else class="interview-mode">
+        <div class="mode-header">
+          <h2>模拟面试</h2>
+          <button @click="showTest = true" class="toggle-btn">
+            Back to Test Mode
+          </button>
+        </div>
+
+        <!-- Step 1: Input Resume and JD -->
+        <div v-if="currentStep === 'input'" class="step-content">
+          <ResumeInput v-model="resume" />
+          <JobDescription v-model="jobDescription" />
+          
+          <div class="action-buttons">
+            <button 
+              @click="generateQuestions" 
+              :disabled="!canGenerate || isLoading"
+              class="primary-btn"
+            >
+              {{ isLoading ? '生成中...' : '生成面试问题' }}
+            </button>
+          </div>
+          
+          <p v-if="error" class="error-message">{{ error }}</p>
+        </div>
+
+        <!-- Step 2: Show Questions -->
+        <div v-if="currentStep === 'questions'" class="step-content">
+          <QuestionList 
+            :questions="questions" 
+            :current-index="currentQuestionIndex"
+            @select-question="selectQuestion"
+          />
+          
+          <div class="action-buttons">
+            <button @click="startInterview" class="primary-btn">
+              开始面试
+            </button>
+            <button @click="currentStep = 'input'" class="secondary-btn">
+              重新生成问题
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Interview -->
+        <div v-if="currentStep === 'interview'" class="step-content">
+          <div class="interview-progress">
+            <span>问题 {{ currentQuestionIndex + 1 }} / {{ questions.length }}</span>
+          </div>
+          
+          <div class="current-question">
+            <h3>{{ questions[currentQuestionIndex] }}</h3>
+          </div>
+          
+          <div class="answer-input">
+            <h4>您的回答：</h4>
+            <textarea
+              v-model="currentAnswer"
+              placeholder="请输入您的回答..."
+              rows="8"
+              class="answer-textarea"
+            />
+          </div>
+          
+          <div class="action-buttons">
+            <button 
+              @click="submitAnswer" 
+              :disabled="!currentAnswer.trim() || isLoading"
+              class="primary-btn"
+            >
+              {{ isLoading ? '分析中...' : '提交答案' }}
+            </button>
+            <button 
+              v-if="currentQuestionIndex < questions.length - 1"
+              @click="nextQuestion"
+              class="secondary-btn"
+            >
+              跳过此题
+            </button>
+          </div>
+          
+          <p v-if="error" class="error-message">{{ error }}</p>
+        </div>
+
+        <!-- Step 4: Feedback -->
+        <div v-if="currentStep === 'feedback'" class="step-content">
+          <div class="feedback-card">
+            <h3>AI 反馈</h3>
+            <div class="feedback-content" v-html="formattedFeedback"></div>
+          </div>
+          
+          <div class="action-buttons">
+            <button 
+              v-if="currentQuestionIndex < questions.length - 1"
+              @click="nextQuestionAfterFeedback"
+              class="primary-btn"
+            >
+              下一题
+            </button>
+            <button 
+              v-else
+              @click="finishInterview"
+              class="primary-btn"
+            >
+              完成面试
+            </button>
+            <button @click="currentStep = 'interview'" class="secondary-btn">
+              返回答题
+            </button>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import ResumeInput from './components/ResumeInput.vue'
+import JobDescription from './components/JobDescription.vue'
+import QuestionList from './components/QuestionList.vue'
 
-// User input state
+// Phase 1 test variables
 const userName = ref('')
 const greeting = ref('')
+const showTest = ref(false)
+
+// Phase 2 interview variables
+const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback'>('input')
+const resume = ref('')
+const jobDescription = ref('')
+const questions = ref<string[]>([])
+const currentQuestionIndex = ref(0)
+const currentAnswer = ref('')
+const currentFeedback = ref('')
+const isLoading = ref(false)
+const error = ref('')
+
+const canGenerate = computed(() => {
+  return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
+})
+
+const formattedFeedback = computed(() => {
+  return currentFeedback.value.replace(/\n/g, '<br>')
+})
 
 /**
  * Handle greet button click
@@ -61,6 +196,84 @@ const handleGreet = async () => {
   } catch (error) {
     greeting.value = `Error: ${error}`
   }
+}
+
+/**
+ * Generate interview questions
+ */
+const generateQuestions = async () => {
+  if (!canGenerate.value) return
+  
+  isLoading.value = true
+  error.value = ''
+  
+  try {
+    questions.value = await invoke<string[]>('generate_questions', {
+      resume: resume.value,
+      jobDescription: jobDescription.value,
+      count: 5
+    })
+    currentStep.value = 'questions'
+    currentQuestionIndex.value = 0
+  } catch (err) {
+    error.value = `生成问题失败: ${err}`
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const startInterview = () => {
+  currentStep.value = 'interview'
+  currentQuestionIndex.value = 0
+  currentAnswer.value = ''
+}
+
+const selectQuestion = (index: number) => {
+  currentQuestionIndex.value = index
+}
+
+const submitAnswer = async () => {
+  if (!currentAnswer.value.trim()) return
+  
+  isLoading.value = true
+  error.value = ''
+  
+  try {
+    currentFeedback.value = await invoke<string>('analyze_answer', {
+      question: questions.value[currentQuestionIndex.value],
+      answer: currentAnswer.value,
+      jobDescription: jobDescription.value
+    })
+    currentStep.value = 'feedback'
+  } catch (err) {
+    error.value = `分析答案失败: ${err}`
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const nextQuestion = () => {
+  if (currentQuestionIndex.value < questions.value.length - 1) {
+    currentQuestionIndex.value++
+    currentAnswer.value = ''
+  }
+}
+
+const nextQuestionAfterFeedback = () => {
+  currentQuestionIndex.value++
+  currentAnswer.value = ''
+  currentFeedback.value = ''
+  currentStep.value = 'interview'
+}
+
+const finishInterview = () => {
+  currentStep.value = 'input'
+  resume.value = ''
+  jobDescription.value = ''
+  questions.value = []
+  currentQuestionIndex.value = 0
+  currentAnswer.value = ''
+  currentFeedback.value = ''
 }
 </script>
 
@@ -164,5 +377,165 @@ main {
   font-size: 1.2rem;
   font-weight: 500;
   color: #fff;
+}
+
+.interview-mode {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+}
+
+.mode-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.mode-header h2 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: #333;
+}
+
+.toggle-btn {
+  padding: 0.6rem 1.2rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.toggle-btn:hover {
+  background: #e0e0e0;
+}
+
+.step-content {
+  margin-top: 2rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  justify-content: center;
+}
+
+.primary-btn {
+  padding: 0.8rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  padding: 0.8rem 2rem;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.secondary-btn:hover {
+  background: #f8f9ff;
+}
+
+.error-message {
+  color: #e53e3e;
+  text-align: center;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fff5f5;
+  border-radius: 8px;
+}
+
+.interview-progress {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 2rem;
+  padding: 0.8rem;
+  background: #f8f9ff;
+  border-radius: 8px;
+}
+
+.current-question {
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.current-question h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.6;
+}
+
+.answer-input h4 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.answer-textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  line-height: 1.6;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.3s;
+}
+
+.answer-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.feedback-card {
+  padding: 2rem;
+  background: #f8f9ff;
+  border-radius: 12px;
+  border: 2px solid #667eea;
+}
+
+.feedback-card h3 {
+  margin: 0 0 1.5rem;
+  font-size: 1.4rem;
+  color: #667eea;
+}
+
+.feedback-content {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #333;
+  white-space: pre-wrap;
 }
 </style>

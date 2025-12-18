@@ -16,6 +16,21 @@
 npm install
 ```
 
+## 配置 API
+
+**重要**：使用 AI 面试功能需要配置硅基流动 API。
+
+1. 注册硅基流动账号：https://cloud.siliconflow.cn
+2. 获取 API Key
+3. 复制 `.env.example` 为 `.env`：
+   ```bash
+   cp .env.example .env
+   ```
+4. 编辑 `.env` 文件，填入你的 API Key：
+   ```
+   SILICONFLOW_API_KEY=sk-xxxxxxxxxx
+   ```
+
 ## 开发
 
 ```bash
@@ -51,7 +66,14 @@ npm run format
    - 点击 "Test IPC Connection" 按钮
    - 应该看到返回消息：`Hello, [你的名字]! Welcome to InterviewSpark.`
 
-3. **编译测试**
+3. **测试模拟面试功能**
+   - 点击 "Switch to Interview Mode" 进入面试模式
+   - 输入简历和岗位描述（JD）
+   - 点击 "生成面试问题" 生成 AI 问题
+   - 点击 "开始面试" 开始答题
+   - 输入答案并点击 "提交答案" 获取 AI 反馈
+
+4. **编译测试**
    ```bash
    # 前端构建
    npm run build
@@ -84,18 +106,27 @@ npm run tauri:build
 ## 项目结构
 
 ```bash
-src/                 # Vue 3 前端代码
-  App.vue           # 主应用组件
-  main.ts           # 前端入口
-  vite-env.d.ts     # TypeScript 类型声明
-src-tauri/          # Rust 后端代码
+src/                      # Vue 3 前端代码
+  App.vue                 # 主应用组件（面试流程控制）
+  main.ts                 # 前端入口
+  vite-env.d.ts           # TypeScript 类型声明
+  components/             # Vue 组件
+    ResumeInput.vue       # 简历输入组件
+    JobDescription.vue    # 岗位描述输入组件
+    QuestionList.vue      # 问题列表展示组件
+src-tauri/                # Rust 后端代码
   src/
-    lib.rs          # Tauri 应用入口和命令定义
-    main.rs         # Rust 程序入口
-  Cargo.toml        # Rust 依赖配置
-  tauri.conf.json   # Tauri 应用配置
-DevPlan.md          # 开发阶段计划
-ProductionDoc.md    # 产品文档
+    lib.rs                # Tauri 应用入口和命令定义
+    main.rs               # Rust 程序入口
+    api/                  # API 模块
+      mod.rs              # 模块入口
+      siliconflow.rs      # 硅基流动 API 客户端
+  Cargo.toml              # Rust 依赖配置
+  tauri.conf.json         # Tauri 应用配置
+.env                      # 环境变量配置（API Key）
+.env.example              # 环境变量模板
+DevPlan.md                # 开发阶段计划
+ProductionDoc.md          # 产品文档
 ```
 
 ## 技术栈
@@ -105,3 +136,21 @@ ProductionDoc.md    # 产品文档
 - **前端框架**: Vue 3.5 + TypeScript
 - **构建工具**: Vite 7.2
 - **代码规范**: ESLint + Prettier
+- **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)
+- **HTTP 客户端**: reqwest
+- **异步运行时**: tokio
+
+## 功能特性
+
+### 已实现
+
+- **基础框架**: Tauri + Rust + Vue 3 跨平台架构
+- **模拟面试**: 基于简历和 JD 生成面试问题
+- **AI 反馈**: 分析用户答案，提供改进建议
+- **完整流程**: 输入 → 生成问题 → 回答 → 获得反馈
+
+### 待开发
+
+- **数据持久化**: SQLite 本地存储
+- **语音交互**: AI 面试官语音发问
+- **复盘分析**: 多维度评估和可视化报告
