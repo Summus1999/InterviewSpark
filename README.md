@@ -114,6 +114,10 @@ src/                      # Vue 3 前端代码
     ResumeInput.vue       # 简历输入组件
     JobDescription.vue    # 岗位描述输入组件
     QuestionList.vue      # 问题列表展示组件
+    InterviewHistory.vue  # 历史记录查看组件
+    QuestionBank.vue      # 题库管理组件
+  services/               # 服务层
+    database.ts           # 数据库服务接口
 src-tauri/                # Rust 后端代码
   src/
     lib.rs                # Tauri 应用入口和命令定义
@@ -121,8 +125,15 @@ src-tauri/                # Rust 后端代码
     api/                  # API 模块
       mod.rs              # 模块入口
       siliconflow.rs      # 硅基流动 API 客户端
+    db/                   # 数据库模块
+      mod.rs              # 模块入口
+      models.rs           # 数据模型定义
+      schema.rs           # 表结构和初始化
+      repository.rs       # 数据访问层
   Cargo.toml              # Rust 依赖配置
   tauri.conf.json         # Tauri 应用配置
+data/                     # 数据存储目录
+  interview_spark.db      # SQLite 数据库文件
 .env                      # 环境变量配置（API Key）
 .env.example              # 环境变量模板
 DevPlan.md                # 开发阶段计划
@@ -137,6 +148,7 @@ ProductionDoc.md          # 产品文档
 - **构建工具**: Vite 7.2
 - **代码规范**: ESLint + Prettier
 - **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)
+- **数据库**: SQLite + rusqlite
 - **HTTP 客户端**: reqwest
 - **异步运行时**: tokio
 
@@ -144,13 +156,15 @@ ProductionDoc.md          # 产品文档
 
 ### 已实现
 
-- **基础框架**: Tauri + Rust + Vue 3 跨平台架构
-- **模拟面试**: 基于简历和 JD 生成面试问题
-- **AI 反馈**: 分析用户答案，提供改进建议
-- **完整流程**: 输入 → 生成问题 → 回答 → 获得反馈
+- **基础框架** (Phase 1): Tauri + Rust + Vue 3 跨平台架构
+- **模拟面试** (Phase 2): 基于简历和 JD 生成面试问题
+- **AI 反馈** (Phase 2): 分析用户答案，提供改进建议
+- **完整流程** (Phase 2): 输入 → 生成问题 → 回答 → 获得反馈
+- **数据持久化** (Phase 3): SQLite 本地存储，自动保存面试记录
+- **历史记录** (Phase 3): 查看过往面试会话和答题详情
+- **题库管理** (Phase 3): 收藏问题、添加最佳答案、分类管理
 
 ### 待开发
 
-- **数据持久化**: SQLite 本地存储
-- **语音交互**: AI 面试官语音发问
-- **复盘分析**: 多维度评估和可视化报告
+- **语音交互** (Phase 4): AI 面试官语音发问
+- **复盘分析** (Phase 5): 多维度评估和可视化报告

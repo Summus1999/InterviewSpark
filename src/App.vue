@@ -35,114 +35,138 @@
       <!-- Phase 2: Interview Mode -->
       <section v-else class="interview-mode">
         <div class="mode-header">
-          <h2>模拟面试</h2>
-          <button @click="showTest = true" class="toggle-btn">
-            Back to Test Mode
-          </button>
-        </div>
-
-        <!-- Step 1: Input Resume and JD -->
-        <div v-if="currentStep === 'input'" class="step-content">
-          <ResumeInput v-model="resume" />
-          <JobDescription v-model="jobDescription" />
-          
-          <div class="action-buttons">
-            <button 
-              @click="generateQuestions" 
-              :disabled="!canGenerate || isLoading"
-              class="primary-btn"
-            >
-              {{ isLoading ? '生成中...' : '生成面试问题' }}
+          <h2>{{ modeTitle }}</h2>
+          <div class="mode-actions">
+            <button @click="currentMode = 'interview'" :class="{ active: currentMode === 'interview' }" class="mode-btn">
+              面试模式
             </button>
-          </div>
-          
-          <p v-if="error" class="error-message">{{ error }}</p>
-        </div>
-
-        <!-- Step 2: Show Questions -->
-        <div v-if="currentStep === 'questions'" class="step-content">
-          <QuestionList 
-            :questions="questions" 
-            :current-index="currentQuestionIndex"
-            @select-question="selectQuestion"
-          />
-          
-          <div class="action-buttons">
-            <button @click="startInterview" class="primary-btn">
-              开始面试
+            <button @click="currentMode = 'history'" :class="{ active: currentMode === 'history' }" class="mode-btn">
+              历史记录
             </button>
-            <button @click="currentStep = 'input'" class="secondary-btn">
-              重新生成问题
+            <button @click="currentMode = 'bank'" :class="{ active: currentMode === 'bank' }" class="mode-btn">
+              题库管理
+            </button>
+            <button @click="showTest = true" class="toggle-btn">
+              测试模式
             </button>
           </div>
         </div>
 
-        <!-- Step 3: Interview -->
-        <div v-if="currentStep === 'interview'" class="step-content">
-          <div class="interview-progress">
-            <span>问题 {{ currentQuestionIndex + 1 }} / {{ questions.length }}</span>
+        <!-- Interview Mode Content -->
+        <div v-if="currentMode === 'interview'">
+          <!-- Step 1: Input Resume and JD -->
+          <div v-if="currentStep === 'input'" class="step-content">
+            <ResumeInput v-model="resume" />
+            <JobDescription v-model="jobDescription" />
+            
+            <div class="action-buttons">
+              <button 
+                @click="generateQuestions" 
+                :disabled="!canGenerate || isLoading"
+                class="primary-btn"
+              >
+                {{ isLoading ? '生成中...' : '生成面试问题' }}
+              </button>
+            </div>
+            
+            <p v-if="error" class="error-message">{{ error }}</p>
           </div>
-          
-          <div class="current-question">
-            <h3>{{ questions[currentQuestionIndex] }}</h3>
-          </div>
-          
-          <div class="answer-input">
-            <h4>您的回答：</h4>
-            <textarea
-              v-model="currentAnswer"
-              placeholder="请输入您的回答..."
-              rows="8"
-              class="answer-textarea"
+
+          <!-- Step 2: Show Questions -->
+          <div v-if="currentStep === 'questions'" class="step-content">
+            <QuestionList 
+              :questions="questions" 
+              :current-index="currentQuestionIndex"
+              @select-question="selectQuestion"
             />
+            
+            <div class="action-buttons">
+              <button @click="startInterview" class="primary-btn">
+                开始面试
+              </button>
+              <button @click="currentStep = 'input'" class="secondary-btn">
+                重新生成问题
+              </button>
+            </div>
           </div>
-          
-          <div class="action-buttons">
-            <button 
-              @click="submitAnswer" 
-              :disabled="!currentAnswer.trim() || isLoading"
-              class="primary-btn"
-            >
-              {{ isLoading ? '分析中...' : '提交答案' }}
-            </button>
-            <button 
-              v-if="currentQuestionIndex < questions.length - 1"
-              @click="nextQuestion"
-              class="secondary-btn"
-            >
-              跳过此题
-            </button>
+
+          <!-- Step 3: Interview -->
+          <div v-if="currentStep === 'interview'" class="step-content">
+            <div class="interview-progress">
+              <span>问题 {{ currentQuestionIndex + 1 }} / {{ questions.length }}</span>
+            </div>
+            
+            <div class="current-question">
+              <h3>{{ questions[currentQuestionIndex] }}</h3>
+            </div>
+            
+            <div class="answer-input">
+              <h4>您的回答：</h4>
+              <textarea
+                v-model="currentAnswer"
+                placeholder="请输入您的回答..."
+                rows="8"
+                class="answer-textarea"
+              />
+            </div>
+            
+            <div class="action-buttons">
+              <button 
+                @click="submitAnswer" 
+                :disabled="!currentAnswer.trim() || isLoading"
+                class="primary-btn"
+              >
+                {{ isLoading ? '分析中...' : '提交答案' }}
+              </button>
+              <button 
+                v-if="currentQuestionIndex < questions.length - 1"
+                @click="nextQuestion"
+                class="secondary-btn"
+              >
+                跳过此题
+              </button>
+            </div>
+            
+            <p v-if="error" class="error-message">{{ error }}</p>
           </div>
-          
-          <p v-if="error" class="error-message">{{ error }}</p>
+
+          <!-- Step 4: Feedback -->
+          <div v-if="currentStep === 'feedback'" class="step-content">
+            <div class="feedback-card">
+              <h3>AI 反馈</h3>
+              <div class="feedback-content" v-html="formattedFeedback"></div>
+            </div>
+            
+            <div class="action-buttons">
+              <button 
+                v-if="currentQuestionIndex < questions.length - 1"
+                @click="nextQuestionAfterFeedback"
+                class="primary-btn"
+              >
+                下一题
+              </button>
+              <button 
+                v-else
+                @click="finishInterview"
+                class="primary-btn"
+              >
+                完成面试
+              </button>
+              <button @click="currentStep = 'interview'" class="secondary-btn">
+                返回答题
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Step 4: Feedback -->
-        <div v-if="currentStep === 'feedback'" class="step-content">
-          <div class="feedback-card">
-            <h3>AI 反馈</h3>
-            <div class="feedback-content" v-html="formattedFeedback"></div>
-          </div>
-          
-          <div class="action-buttons">
-            <button 
-              v-if="currentQuestionIndex < questions.length - 1"
-              @click="nextQuestionAfterFeedback"
-              class="primary-btn"
-            >
-              下一题
-            </button>
-            <button 
-              v-else
-              @click="finishInterview"
-              class="primary-btn"
-            >
-              完成面试
-            </button>
-            <button @click="currentStep = 'interview'" class="secondary-btn">
-              返回答题
-            </button>
-          </div>
+        <!-- History Mode -->
+        <div v-if="currentMode === 'history'">
+          <InterviewHistory />
+        </div>
+
+        <!-- Question Bank Mode -->
+        <div v-if="currentMode === 'bank'">
+          <QuestionBank />
         </div>
       </section>
     </main>
@@ -155,11 +179,17 @@ import { invoke } from '@tauri-apps/api/core'
 import ResumeInput from './components/ResumeInput.vue'
 import JobDescription from './components/JobDescription.vue'
 import QuestionList from './components/QuestionList.vue'
+import InterviewHistory from './components/InterviewHistory.vue'
+import QuestionBank from './components/QuestionBank.vue'
+import { createSession, saveAnswer } from './services/database'
 
 // Phase 1 test variables
 const userName = ref('')
 const greeting = ref('')
 const showTest = ref(false)
+
+// Mode management
+const currentMode = ref<'interview' | 'history' | 'bank'>('interview')
 
 // Phase 2 interview variables
 const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback'>('input')
@@ -172,12 +202,25 @@ const currentFeedback = ref('')
 const isLoading = ref(false)
 const error = ref('')
 
+// Database tracking
+const currentSessionId = ref<number | null>(null)
+const answersHistory = ref<Array<{ question: string; answer: string; feedback: string }>>([])
+
 const canGenerate = computed(() => {
   return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
 })
 
 const formattedFeedback = computed(() => {
   return currentFeedback.value.replace(/\n/g, '<br>')
+})
+
+const modeTitle = computed(() => {
+  switch (currentMode.value) {
+    case 'interview': return '模拟面试'
+    case 'history': return '历史记录'
+    case 'bank': return '题库管理'
+    default: return '模拟面试'
+  }
 })
 
 /**
@@ -222,10 +265,17 @@ const generateQuestions = async () => {
   }
 }
 
-const startInterview = () => {
-  currentStep.value = 'interview'
-  currentQuestionIndex.value = 0
-  currentAnswer.value = ''
+const startInterview = async () => {
+  try {
+    // Create interview session in database
+    currentSessionId.value = await createSession(null, null, questions.value)
+    answersHistory.value = []
+    currentStep.value = 'interview'
+    currentQuestionIndex.value = 0
+    currentAnswer.value = ''
+  } catch (err) {
+    error.value = `创建面试会话失败: ${err}`
+  }
 }
 
 const selectQuestion = (index: number) => {
@@ -244,6 +294,25 @@ const submitAnswer = async () => {
       answer: currentAnswer.value,
       jobDescription: jobDescription.value
     })
+    
+    // Save answer to database if session exists
+    if (currentSessionId.value) {
+      await saveAnswer(
+        currentSessionId.value,
+        currentQuestionIndex.value,
+        questions.value[currentQuestionIndex.value],
+        currentAnswer.value,
+        currentFeedback.value
+      )
+    }
+    
+    // Track answer in memory
+    answersHistory.value.push({
+      question: questions.value[currentQuestionIndex.value],
+      answer: currentAnswer.value,
+      feedback: currentFeedback.value
+    })
+    
     currentStep.value = 'feedback'
   } catch (err) {
     error.value = `分析答案失败: ${err}`
@@ -267,6 +336,12 @@ const nextQuestionAfterFeedback = () => {
 }
 
 const finishInterview = () => {
+  // Show completion message
+  if (answersHistory.value.length > 0) {
+    alert(`面试完成！已保存 ${answersHistory.value.length} 个回答记录。`)
+  }
+  
+  // Reset state
   currentStep.value = 'input'
   resume.value = ''
   jobDescription.value = ''
@@ -274,6 +349,8 @@ const finishInterview = () => {
   currentQuestionIndex.value = 0
   currentAnswer.value = ''
   currentFeedback.value = ''
+  currentSessionId.value = null
+  answersHistory.value = []
 }
 </script>
 
@@ -392,12 +469,42 @@ main {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .mode-header h2 {
   margin: 0;
   font-size: 1.8rem;
   color: #333;
+}
+
+.mode-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mode-btn {
+  padding: 0.6rem 1.2rem;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 0.95rem;
+}
+
+.mode-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.mode-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
 }
 
 .toggle-btn {
