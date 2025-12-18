@@ -8,9 +8,11 @@
 
 mod api;
 mod db;
+mod analysis;
 
 use api::SiliconFlowClient;
-use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem};
+use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats};
+use analysis::{ContentAnalyzer, ScoringEngine};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
@@ -240,6 +242,134 @@ fn db_delete_from_bank(id: i64, state: State<'_, AppState>) -> Result<(), String
         .map_err(|e| e.to_string())
 }
 
+// ===== Answer Analysis Commands =====
+
+/// Analyze answer and save analysis results
+#[tauri::command]
+async fn analyze_answer_with_scoring(
+    answer_id: i64,
+    answer: String,
+    question: String,
+    job_description: String,
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    // Perform content analysis
+    let analysis = ContentAnalyzer::analyze(&answer, &question, &job_description)
+        .map_err(|e| e.to_string())?;
+    
+    // Calculate scores
+    let scoring_result = ScoringEngine::calculate_score(&analysis, None);
+    
+    // Save analysis to database
+    let strengths_json = serde_json::to_string(&analysis.strengths).unwrap_or_default();
+    let weaknesses_json = serde_json::to_string(&analysis.weaknesses).unwrap_or_default();
+    let suggestions_json = serde_json::to_string(&ScoringEngine::get_improvement_suggestions(&scoring_result.score_breakdown)).unwrap_or_default();
+    
+    state.db.save_answer_analysis(
+        answer_id,
+        scoring_result.content_score,
+        scoring_result.score_breakdown.logic,
+        scoring_result.score_breakdown.job_match,
+        scoring_result.score_breakdown.keyword_coverage,
+        scoring_result.expression_score,
+        scoring_result.overall_score,
+        strengths_json,
+        weaknesses_json,
+        suggestions_json,
+    ).map_err(|e| e.to_string())?;
+    
+    Ok(serde_json::json!({
+        "overall_score": scoring_result.overall_score,
+        "content_score": scoring_result.content_score,
+        "grade": scoring_result.score_grade,
+        "breakdown": {
+            "logic": scoring_result.score_breakdown.logic,
+            "job_match": scoring_result.score_breakdown.job_match,
+            "keyword_coverage": scoring_result.score_breakdown.keyword_coverage,
+        },
+        "strengths": analysis.strengths,
+        "weaknesses": analysis.weaknesses,
+        "suggestions": ScoringEngine::get_improvement_suggestions(&scoring_result.score_breakdown),
+    }))
+}
+
+/// Get answer analysis
+#[tauri::command]
+fn db_get_answer_analysis(answer_id: i64, state: State<'_, AppState>) -> Result<Option<AnswerAnalysis>, String> {
+    state.db.get_answer_analysis(answer_id)
+        .map_err(|e| e.to_string())
+}
+
+// ===== Session Report Commands =====
+
+/// Save session report
+#[tauri::command]
+fn db_save_session_report(
+    session_id: i64,
+    overall_score: f32,
+    content_analysis: String,
+    expression_analysis: Option<String>,
+    summary: String,
+    improvements: String,
+    key_takeaways: String,
+    reference_answers: Option<String>,
+    api_response_time: Option<i32>,
+    state: State<'_, AppState>,
+) -> Result<i64, String> {
+    state.db.save_session_report(
+        session_id,
+        overall_score,
+        content_analysis,
+        expression_analysis,
+        summary,
+        improvements,
+        key_takeaways,
+        reference_answers,
+        api_response_time,
+    ).map_err(|e| e.to_string())
+}
+
+/// Get session report
+#[tauri::command]
+fn db_get_session_report(session_id: i64, state: State<'_, AppState>) -> Result<Option<SessionReport>, String> {
+    state.db.get_session_report(session_id)
+        .map_err(|e| e.to_string())
+}
+
+// ===== Performance Stats Commands =====
+
+/// Save performance statistics
+#[tauri::command]
+fn db_save_performance_stats(
+    session_date: String,
+    total_sessions: i32,
+    average_score: f32,
+    content_avg: f32,
+    expression_avg: Option<f32>,
+    highest_score: f32,
+    lowest_score: f32,
+    improvement_trend: f32,
+    state: State<'_, AppState>,
+) -> Result<i64, String> {
+    state.db.save_performance_stats(
+        session_date,
+        total_sessions,
+        average_score,
+        content_avg,
+        expression_avg,
+        highest_score,
+        lowest_score,
+        improvement_trend,
+    ).map_err(|e| e.to_string())
+}
+
+/// Get performance history
+#[tauri::command]
+fn db_get_performance_history(state: State<'_, AppState>) -> Result<Vec<PerformanceStats>, String> {
+    state.db.get_performance_history()
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -299,7 +429,13 @@ pub fn run() {
       db_add_to_bank,
       db_get_bank,
       db_update_bank_item,
-      db_delete_from_bank
+      db_delete_from_bank,
+      analyze_answer_with_scoring,
+      db_get_answer_analysis,
+      db_save_session_report,
+      db_get_session_report,
+      db_save_performance_stats,
+      db_get_performance_history
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

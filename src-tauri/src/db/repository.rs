@@ -294,4 +294,175 @@ impl Repository {
         conn.execute("DELETE FROM question_bank WHERE id = ?1", params![id])?;
         Ok(())
     }
+
+    // ===== Answer Analysis Operations =====
+
+    /// Save analysis for an answer
+    pub fn save_answer_analysis(
+        &self,
+        answer_id: i64,
+        content_score: f32,
+        logic_score: f32,
+        job_match_score: f32,
+        keyword_coverage: f32,
+        expression_score: Option<f32>,
+        overall_score: f32,
+        strengths: String,
+        weaknesses: String,
+        suggestions: String,
+    ) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT INTO answer_analysis (answer_id, content_score, logic_score, job_match_score, keyword_coverage, expression_score, overall_score, strengths, weaknesses, suggestions, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                answer_id, content_score, logic_score, job_match_score, keyword_coverage,
+                expression_score, overall_score, strengths, weaknesses, suggestions, timestamp
+            ],
+        )?;
+        
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Get analysis for an answer
+    pub fn get_answer_analysis(&self, answer_id: i64) -> Result<Option<AnswerAnalysis>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, answer_id, content_score, logic_score, job_match_score, keyword_coverage, expression_score, overall_score, strengths, weaknesses, suggestions, created_at FROM answer_analysis WHERE answer_id = ?1"
+        )?;
+        
+        let analysis = stmt
+            .query_row(params![answer_id], |row| {
+                Ok(AnswerAnalysis {
+                    id: Some(row.get(0)?),
+                    answer_id: row.get(1)?,
+                    content_score: row.get(2)?,
+                    logic_score: row.get(3)?,
+                    job_match_score: row.get(4)?,
+                    keyword_coverage: row.get(5)?,
+                    expression_score: row.get(6)?,
+                    overall_score: row.get(7)?,
+                    strengths: row.get(8)?,
+                    weaknesses: row.get(9)?,
+                    suggestions: row.get(10)?,
+                    created_at: row.get(11)?,
+                })
+            })
+            .optional()?;
+        
+        Ok(analysis)
+    }
+
+    // ===== Session Report Operations =====
+
+    /// Save report for a session
+    pub fn save_session_report(
+        &self,
+        session_id: i64,
+        overall_score: f32,
+        content_analysis: String,
+        expression_analysis: Option<String>,
+        summary: String,
+        improvements: String,
+        key_takeaways: String,
+        reference_answers: Option<String>,
+        api_response_time: Option<i32>,
+    ) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT INTO session_reports (session_id, overall_score, content_analysis, expression_analysis, summary, improvements, key_takeaways, reference_answers, generated_at, api_response_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                session_id, overall_score, content_analysis, expression_analysis,
+                summary, improvements, key_takeaways, reference_answers, timestamp, api_response_time
+            ],
+        )?;
+        
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Get report for a session
+    pub fn get_session_report(&self, session_id: i64) -> Result<Option<SessionReport>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, overall_score, content_analysis, expression_analysis, summary, improvements, key_takeaways, reference_answers, generated_at, api_response_time FROM session_reports WHERE session_id = ?1"
+        )?;
+        
+        let report = stmt
+            .query_row(params![session_id], |row| {
+                Ok(SessionReport {
+                    id: Some(row.get(0)?),
+                    session_id: row.get(1)?,
+                    overall_score: row.get(2)?,
+                    content_analysis: row.get(3)?,
+                    expression_analysis: row.get(4)?,
+                    summary: row.get(5)?,
+                    improvements: row.get(6)?,
+                    key_takeaways: row.get(7)?,
+                    reference_answers: row.get(8)?,
+                    generated_at: row.get(9)?,
+                    api_response_time: row.get(10)?,
+                })
+            })
+            .optional()?;
+        
+        Ok(report)
+    }
+
+    // ===== Performance Stats Operations =====
+
+    /// Save performance statistics
+    pub fn save_performance_stats(
+        &self,
+        session_date: String,
+        total_sessions: i32,
+        average_score: f32,
+        content_avg: f32,
+        expression_avg: Option<f32>,
+        highest_score: f32,
+        lowest_score: f32,
+        improvement_trend: f32,
+    ) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT OR REPLACE INTO performance_stats (session_date, total_sessions, average_score, content_avg, expression_avg, highest_score, lowest_score, improvement_trend, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                session_date, total_sessions, average_score, content_avg, expression_avg,
+                highest_score, lowest_score, improvement_trend, timestamp
+            ],
+        )?;
+        
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Get performance history
+    pub fn get_performance_history(&self) -> Result<Vec<PerformanceStats>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, session_date, total_sessions, average_score, content_avg, expression_avg, highest_score, lowest_score, improvement_trend, recorded_at FROM performance_stats ORDER BY session_date DESC LIMIT 30"
+        )?;
+        
+        let stats = stmt
+            .query_map([], |row| {
+                Ok(PerformanceStats {
+                    id: Some(row.get(0)?),
+                    session_date: row.get(1)?,
+                    total_sessions: row.get(2)?,
+                    average_score: row.get(3)?,
+                    content_avg: row.get(4)?,
+                    expression_avg: row.get(5)?,
+                    highest_score: row.get(6)?,
+                    lowest_score: row.get(7)?,
+                    improvement_trend: row.get(8)?,
+                    recorded_at: row.get(9)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(stats)
+    }
 }

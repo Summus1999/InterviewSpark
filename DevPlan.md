@@ -297,38 +297,156 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 
 **周期**: Week 8-9
 
+**状态**: 待开发
+
 ### 功能清单
 
-- [ ] 多维度分析引擎
-  - 内容维度：逻辑性、岗位匹配度、关键词覆盖
-  - 表达维度：语速、停顿、清晰度（调用硅基流动 API 或本地语音分析）
-  - 综合维度：综合评分、优点总结、不足分析、优化方向
+#### 模块 1: 多维度分析引擎
 
-- [ ] 复盘报告生成
-  - 调用硅基流动 API 生成详细分析报告
-  - 包含：题目回顾、答案评价、改进建议、参考答案
-  - 支持报告导出（PDF / 文本格式）
+- [ ] 数据模型扩展
+  - 在 `models.rs` 新增 `AnswerAnalysis` 结构体（评分、维度指标）
+  - 在 `models.rs` 新增 `SessionReport` 结构体（综合报告）
+  - 在 `schema.rs` 新增 `answer_analysis` 表结构
+  - 在 `schema.rs` 新增 `session_reports` 表结构
 
-- [ ] 成长曲线追踪
-  - 统计多次模拟的评分变化
-  - 可视化展示评分趋势（折线图）
-  - 显示强项和弱项的变化
+- [ ] 分析算法实现
+  - 在 `src-tauri/src/analysis/` 新建模块目录
+  - 创建 `analysis/mod.rs` 模块入口
+  - 创建 `analysis/content.rs` 实现内容分析（逻辑性、匹配度、关键词）
+  - 创建 `analysis/scoring.rs` 实现评分算法（1-10分制）
+  - 扩展 `siliconflow.rs` 新增 `generate_detailed_analysis()` 方法
 
-- [ ] 可视化仪表板
-  - 用户概览：总面试次数、平均分、改进项
-  - 题目热度排行：最常被问的问题
-  - 薄弱领域：需要加强的方向
-  - 最近面试记录列表
+- [ ] Repository 扩展
+  - 在 `repository.rs` 新增 `save_answer_analysis()` 方法
+  - 在 `repository.rs` 新增 `get_answer_analysis()` 方法
+  - 在 `repository.rs` 新增 `save_session_report()` 方法
+  - 在 `repository.rs` 新增 `get_session_report()` 方法
 
-- [ ] 历史记录管理
-  - 查看历史面试详情
-  - 对比不同时期的答案
-  - 支持删除和备份功能
+#### 模块 2: 复盘报告生成
 
-- [ ] 数据分析后端
-  - 实现统计查询（平均分、通过率等）
-  - 实现趋势计算算法
-  - 性能优化（对大量数据的查询）
+- [ ] 报告生成后端
+  - 创建 `analysis/report.rs` 报告生成模块
+  - 实现 `generate_session_report()` 函数（调用硅基流动 API）
+  - 实现报告结构化解析（题目回顾、评价、建议、参考答案）
+  - 在 `lib.rs` 暴露 Tauri 命令 `generate_report`
+
+- [ ] 报告导出功能
+  - 创建 `analysis/export.rs` 导出模块
+  - 实现 `export_to_text()` 纯文本导出
+  - 实现 `export_to_html()` HTML 格式导出
+  - 在 `lib.rs` 暴露 Tauri 命令 `export_report`
+
+- [ ] 前端报告组件
+  - 创建 `src/components/ReportView.vue` 报告展示组件
+  - 实现报告内容渲染（题目、评分、建议）
+  - 实现导出按钮和下载功能
+  - 在 `services/database.ts` 新增报告相关 API 调用
+
+#### 模块 3: 成长曲线追踪
+
+- [ ] 统计数据存储
+  - 在 `schema.rs` 新增 `performance_stats` 表（日期、平均分、维度分数）
+  - 在 `models.rs` 新增 `PerformanceStats` 结构体
+  - 在 `repository.rs` 新增 `save_performance_stats()` 方法
+  - 在 `repository.rs` 新增 `get_performance_history()` 方法
+
+- [ ] 趋势计算后端
+  - 创建 `analysis/trends.rs` 趋势分析模块
+  - 实现 `calculate_score_trend()` 评分趋势计算
+  - 实现 `identify_strengths_weaknesses()` 强弱项识别
+  - 在 `lib.rs` 暴露 Tauri 命令 `get_performance_trend`
+
+- [ ] 前端图表组件
+  - 安装 Chart.js 图表库（`npm install chart.js vue-chartjs`）
+  - 创建 `src/components/GrowthChart.vue` 成长曲线组件
+  - 实现折线图展示评分趋势
+  - 实现强弱项变化对比图
+
+#### 模块 4: 可视化仪表板
+
+- [ ] 统计查询后端
+  - 在 `repository.rs` 新增 `get_total_sessions_count()` 方法
+  - 在 `repository.rs` 新增 `get_average_score()` 方法
+  - 在 `repository.rs` 新增 `get_top_questions()` 热门问题查询
+  - 在 `repository.rs` 新增 `get_weak_areas()` 薄弱领域查询
+  - 在 `lib.rs` 暴露 Tauri 命令 `get_dashboard_stats`
+
+- [ ] 仪表板前端组件
+  - 创建 `src/components/Dashboard.vue` 仪表板主组件
+  - 实现用户概览卡片（总次数、平均分、改进项）
+  - 实现题目热度排行列表
+  - 实现薄弱领域提示区域
+  - 实现最近面试记录列表
+
+- [ ] 导航集成
+  - 在 `App.vue` 新增 "仪表板" 模式入口
+  - 更新模式切换逻辑（面试/历史/题库/仪表板）
+
+#### 模块 5: 历史记录管理增强
+
+- [ ] 详情对比功能
+  - 在 `repository.rs` 新增 `get_answers_comparison()` 对比查询
+  - 创建 `src/components/AnswerComparison.vue` 答案对比组件
+  - 实现同一问题不同时期答案并排对比
+
+- [ ] 删除与备份
+  - 在 `repository.rs` 新增 `delete_session()` 删除会话
+  - 在 `repository.rs` 新增 `delete_all_sessions()` 清空记录
+  - 创建 `analysis/backup.rs` 备份模块
+  - 实现 `export_all_data()` JSON 全量导出
+  - 实现 `import_data()` JSON 数据导入
+  - 在 `lib.rs` 暴露 Tauri 命令 `backup_data`, `restore_data`
+
+- [ ] 前端增强
+  - 更新 `InterviewHistory.vue` 新增删除按钮
+  - 新增备份/恢复按钮
+  - 新增对比入口
+
+#### 模块 6: 数据分析后端优化
+
+- [ ] 查询性能优化
+  - 在 `schema.rs` 为关键字段添加索引（session_id, created_at）
+  - 实现分页查询（limit/offset）
+  - 实现日期范围过滤查询
+
+- [ ] 缓存机制
+  - 创建 `src-tauri/src/cache/mod.rs` 缓存模块
+  - 实现统计数据内存缓存
+  - 实现缓存失效策略（数据变更时清除）
+
+- [ ] 前端服务层扩展
+  - 在 `services/database.ts` 新增统计相关 API
+  - 在 `services/database.ts` 新增报告相关 API
+  - 在 `services/database.ts` 新增备份相关 API
+
+### 实施检查清单
+
+```
+1.  [ ] 创建 answer_analysis 表结构
+2.  [ ] 创建 session_reports 表结构
+3.  [ ] 创建 performance_stats 表结构
+4.  [ ] 新增数据模型结构体
+5.  [ ] 创建 analysis/ 模块目录和入口
+6.  [ ] 实现内容分析算法
+7.  [ ] 实现评分算法
+8.  [ ] 扩展硅基流动 API 调用
+9.  [ ] 实现报告生成功能
+10. [ ] 实现报告导出功能
+11. [ ] 实现趋势计算算法
+12. [ ] 安装图表库依赖
+13. [ ] 创建 Dashboard.vue 组件
+14. [ ] 创建 GrowthChart.vue 组件
+15. [ ] 创建 ReportView.vue 组件
+16. [ ] 创建 AnswerComparison.vue 组件
+17. [ ] 实现备份导出功能
+18. [ ] 实现数据恢复功能
+19. [ ] 添加数据库索引优化
+20. [ ] 实现查询分页
+21. [ ] 暴露所有 Tauri 命令
+22. [ ] 更新 App.vue 导航
+23. [ ] 前后端编译验证
+24. [ ] 功能集成测试
+```
 
 ### 交付标准
 
