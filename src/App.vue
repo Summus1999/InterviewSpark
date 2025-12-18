@@ -99,12 +99,19 @@
             <div class="current-question">
               <h3>{{ questions[currentQuestionIndex] }}</h3>
             </div>
+
+            <!-- Voice Controls -->
+            <VoiceControls
+              :current-question="questions[currentQuestionIndex]"
+              :disabled="isLoading"
+              @transcript="handleVoiceTranscript"
+            />
             
             <div class="answer-input">
               <h4>您的回答：</h4>
               <textarea
                 v-model="currentAnswer"
-                placeholder="请输入您的回答..."
+                placeholder="请输入您的回答或使用语音回答..."
                 rows="8"
                 class="answer-textarea"
               />
@@ -174,14 +181,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import ResumeInput from './components/ResumeInput.vue'
 import JobDescription from './components/JobDescription.vue'
 import QuestionList from './components/QuestionList.vue'
 import InterviewHistory from './components/InterviewHistory.vue'
 import QuestionBank from './components/QuestionBank.vue'
+import VoiceControls from './components/VoiceControls.vue'
 import { createSession, saveAnswer } from './services/database'
+import { tts } from './services/voice'
 
 // Phase 1 test variables
 const userName = ref('')
@@ -205,6 +214,9 @@ const error = ref('')
 // Database tracking
 const currentSessionId = ref<number | null>(null)
 const answersHistory = ref<Array<{ question: string; answer: string; feedback: string }>>([])
+
+// Voice feature toggle
+const voiceEnabled = ref(true)
 
 const canGenerate = computed(() => {
   return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
@@ -273,13 +285,54 @@ const startInterview = async () => {
     currentStep.value = 'interview'
     currentQuestionIndex.value = 0
     currentAnswer.value = ''
+    
+    // Auto-play first question with voice
+    if (voiceEnabled.value) {
+      await nextTick()
+      playCurrentQuestion()
+    }
   } catch (err) {
     error.value = `创建面试会话失败: ${err}`
   }
 }
 
+/**
+ * Play current question with voice
+ */
+const playCurrentQuestion = async () => {
+  if (!voiceEnabled.value || !questions.value[currentQuestionIndex.value]) return
+  
+  try {
+    await tts.speak(questions.value[currentQuestionIndex.value])
+  } catch (error) {
+    console.error('Failed to play question:', error)
+  }
+}
+
+/**
+ * Play feedback with voice
+ */
+const playFeedback = async () => {
+  if (!voiceEnabled.value || !currentFeedback.value) return
+  
+  try {
+    // Speak feedback (limit length for better UX)
+    const feedback = currentFeedback.value.substring(0, 500)
+    await tts.speak(feedback)
+  } catch (error) {
+    console.error('Failed to play feedback:', error)
+  }
+}
+
 const selectQuestion = (index: number) => {
   currentQuestionIndex.value = index
+}
+
+/**
+ * Handle voice transcript from speech recognition
+ */
+const handleVoiceTranscript = (text: string) => {
+  currentAnswer.value = text
 }
 
 const submitAnswer = async () => {
@@ -314,6 +367,12 @@ const submitAnswer = async () => {
     })
     
     currentStep.value = 'feedback'
+    
+    // Auto-play feedback with voice
+    if (voiceEnabled.value) {
+      await nextTick()
+      playFeedback()
+    }
   } catch (err) {
     error.value = `分析答案失败: ${err}`
   } finally {
@@ -328,11 +387,17 @@ const nextQuestion = () => {
   }
 }
 
-const nextQuestionAfterFeedback = () => {
+const nextQuestionAfterFeedback = async () => {
   currentQuestionIndex.value++
   currentAnswer.value = ''
   currentFeedback.value = ''
   currentStep.value = 'interview'
+  
+  // Auto-play next question
+  if (voiceEnabled.value) {
+    await nextTick()
+    playCurrentQuestion()
+  }
 }
 
 const finishInterview = () => {
