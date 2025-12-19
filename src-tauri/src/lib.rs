@@ -11,10 +11,11 @@ mod db;
 mod analysis;
 
 use api::SiliconFlowClient;
-use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats};
-use analysis::{ContentAnalyzer, ScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, BackupData, CacheManager};
+use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult};
+use analysis::{ContentAnalyzer, ScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, BackupData, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
+use futures::StreamExt;
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::{State, Emitter};
 
 /// Application state holding the SiliconFlow API client and database
 /// 
@@ -98,6 +99,110 @@ async fn analyze_answer(
         .analyze_answer(&question, &answer, &job_description)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Analyze answer for follow-up question generation
+///
+/// # Arguments
+/// * `original_question` - Original interview question
+/// * `answer` - Candidate's answer
+/// * `conversation_history` - JSON string of conversation history
+/// * `job_description` - Target job description
+/// * `max_followups` - Maximum number of follow-up questions
+/// * `preferred_types` - Preferred follow-up types
+/// * `state` - Application state
+///
+/// # Returns
+/// * `Ok(String)` - JSON analysis result with follow-up suggestions
+/// * `Err(String)` - Error message
+#[tauri::command]
+async fn analyze_for_followup(
+    original_question: String,
+    answer: String,
+    conversation_history: String,
+    job_description: String,
+    max_followups: u32,
+    preferred_types: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let client = {
+        let client_guard = state.api_client.lock().unwrap();
+        client_guard.clone().ok_or("API client not initialized")?
+    };
+    
+    client
+        .analyze_for_followup(
+            &original_question,
+            &answer,
+            &conversation_history,
+            &job_description,
+            max_followups,
+            &preferred_types,
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Analyze answer with streaming feedback
+/// Emits incremental feedback through Tauri events
+#[tauri::command]
+async fn analyze_answer_stream(
+    question: String,
+    answer: String,
+    job_description: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.api_client.lock().unwrap();
+        client_guard.clone().ok_or("API client not initialized")?
+    };
+
+    // Prepare streaming messages
+    let system_prompt = "You are an experienced interviewer providing constructive feedback on interview answers.";
+    let user_prompt = format!(
+        "Question: {}\n\nCandidate's Answer: {}\n\nJob Description: {}\n\nPlease analyze this answer and provide:\n1. Strengths\n2. Areas for improvement\n3. Suggestions for better response\n4. Relevance to job requirements",
+        question, answer, job_description
+    );
+
+    let messages = vec![
+        api::siliconflow::ChatMessage {
+            role: "system".to_string(),
+            content: system_prompt.to_string(),
+        },
+        api::siliconflow::ChatMessage {
+            role: "user".to_string(),
+            content: user_prompt,
+        },
+    ];
+
+    // Get streaming response
+    let mut stream = client
+        .chat_completion_stream(messages, Some(0.7), Some(1500))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Emit chunks through Tauri events
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(chunk) => {
+                if !chunk.is_empty() {
+                    app.emit("answer-feedback-chunk", chunk)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            Err(e) => {
+                log::error!("Stream error: {}", e);
+                return Err(e.to_string());
+            }
+        }
+    }
+
+    // Emit completion event
+    app.emit("answer-feedback-complete", ())
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 // ===== Resume Commands =====
@@ -241,6 +346,64 @@ fn db_update_bank_item(
 #[tauri::command]
 fn db_delete_from_bank(id: i64, state: State<'_, AppState>) -> Result<(), String> {
     state.db.delete_from_question_bank(id)
+        .map_err(|e| e.to_string())
+}
+
+// ===== Question Tag Commands =====
+
+/// Create a new tag
+#[tauri::command]
+fn db_create_tag(name: String, color: String, state: State<'_, AppState>) -> Result<i64, String> {
+    state.db.create_tag(name, color)
+        .map_err(|e| e.to_string())
+}
+
+/// Get all tags
+#[tauri::command]
+fn db_get_all_tags(state: State<'_, AppState>) -> Result<Vec<QuestionTag>, String> {
+    state.db.get_all_tags()
+        .map_err(|e| e.to_string())
+}
+
+/// Update a tag
+#[tauri::command]
+fn db_update_tag(id: i64, name: String, color: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.update_tag(id, name, color)
+        .map_err(|e| e.to_string())
+}
+
+/// Delete a tag
+#[tauri::command]
+fn db_delete_tag(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_tag(id)
+        .map_err(|e| e.to_string())
+}
+
+/// Add a tag to a question
+#[tauri::command]
+fn db_add_tag_to_question(question_id: i64, tag_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.add_tag_to_question(question_id, tag_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Remove a tag from a question
+#[tauri::command]
+fn db_remove_tag_from_question(question_id: i64, tag_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.remove_tag_from_question(question_id, tag_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Get tags for a specific question
+#[tauri::command]
+fn db_get_tags_for_question(question_id: i64, state: State<'_, AppState>) -> Result<Vec<QuestionTag>, String> {
+    state.db.get_tags_for_question(question_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Get questions by tag
+#[tauri::command]
+fn db_get_questions_by_tag(tag_id: i64, state: State<'_, AppState>) -> Result<Vec<QuestionBankItem>, String> {
+    state.db.get_questions_by_tag(tag_id)
         .map_err(|e| e.to_string())
 }
 
@@ -609,6 +772,51 @@ fn get_reports_by_date_range(
         .map_err(|e| e.to_string())
 }
 
+// ===== Profile Commands =====
+
+/// Generate interview profile for user
+#[tauri::command]
+fn generate_interview_profile(
+    user_id: String,
+    session_limit: Option<usize>,
+    state: State<'_, AppState>,
+) -> Result<InterviewProfile, String> {
+    ProfileGenerator::generate_profile(&state.db, &user_id, session_limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Generate practice recommendations for user
+#[tauri::command]
+fn generate_practice_recommendations(
+    user_id: String,
+    limit: usize,
+    state: State<'_, AppState>,
+) -> Result<RecommendationResult, String> {
+    RecommendationEngine::generate_recommendations(&state.db, &user_id, limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Extract best practices from high-scoring answers
+#[tauri::command]
+fn extract_best_practices(
+    score_threshold: f32,
+    limit: usize,
+    state: State<'_, AppState>,
+) -> Result<BestPracticesResult, String> {
+    BestPracticesExtractor::extract_best_practices(&state.db, score_threshold, limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Generate industry comparison for user
+#[tauri::command]
+fn generate_industry_comparison(
+    user_id: String,
+    state: State<'_, AppState>,
+) -> Result<IndustryComparisonResult, String> {
+    IndustryComparisonGenerator::generate_comparison(&state.db, &user_id)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -656,6 +864,8 @@ pub fn run() {
       greet,
       generate_questions,
       analyze_answer,
+      analyze_answer_stream,
+      analyze_for_followup,
       db_save_resume,
       db_get_resumes,
       db_delete_resume,
@@ -671,6 +881,14 @@ pub fn run() {
       db_get_bank,
       db_update_bank_item,
       db_delete_from_bank,
+      db_create_tag,
+      db_get_all_tags,
+      db_update_tag,
+      db_delete_tag,
+      db_add_tag_to_question,
+      db_remove_tag_from_question,
+      db_get_tags_for_question,
+      db_get_questions_by_tag,
       analyze_answer_with_scoring,
       db_get_answer_analysis,
       db_save_session_report,
@@ -691,7 +909,11 @@ pub fn run() {
       get_sessions_paginated,
       get_answers_paginated,
       get_sessions_by_date_range,
-      get_reports_by_date_range
+      get_reports_by_date_range,
+      generate_interview_profile,
+      generate_practice_recommendations,
+      extract_best_practices,
+      generate_industry_comparison
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

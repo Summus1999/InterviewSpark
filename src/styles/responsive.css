@@ -1,0 +1,175 @@
+/**
+ * Responsive layout styles - Breakpoints and adaptive design
+ */
+
+/* Breakpoints definition */
+/* 
+  - Mobile: < 768px
+  - Tablet: 768px - 1200px
+  - Desktop: > 1200px
+*/
+
+/* Tablet and smaller devices */
+@media (max-width: 1200px) {
+  .interview-mode {
+    max-width: 100%;
+    padding: 1.5rem;
+  }
+
+  .mode-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mode-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .mode-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Mobile devices */
+@media (max-width: 768px) {
+  header h1 {
+    font-size: 2rem !important;
+  }
+
+  header p {
+    font-size: 0.9rem !important;
+  }
+
+  .header-actions {
+    position: static !important;
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  main {
+    padding: 1rem !important;
+  }
+
+  .welcome {
+    padding: 1.5rem !important;
+  }
+
+  .welcome h2 {
+    font-size: 1.5rem !important;
+  }
+
+  .welcome p {
+    font-size: 1rem !important;
+  }
+
+  .interview-mode {
+    padding: 1rem !important;
+    border-radius: 8px !important;
+  }
+
+  .mode-header h2 {
+    font-size: 1.3rem !important;
+  }
+
+  .mode-btn {
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  .current-question {
+    padding: 1.5rem !important;
+  }
+
+  .current-question h3 {
+    font-size: 1.1rem !important;
+  }
+
+  .action-buttons {
+    flex-direction: column !important;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    width: 100%;
+  }
+
+  .answer-textarea {
+    font-size: 0.95rem !important;
+  }
+
+  .feedback-card {
+    padding: 1.5rem !important;
+  }
+
+  .feedback-card h3 {
+    font-size: 1.2rem !important;
+  }
+
+  .feedback-content {
+    font-size: 0.95rem !important;
+  }
+}
+
+/* Very small mobile devices */
+@media (max-width: 480px) {
+  header {
+    padding: 1.5rem !important;
+  }
+
+  header h1 {
+    font-size: 1.5rem !important;
+  }
+
+  .interview-mode {
+    padding: 0.75rem !important;
+  }
+
+  .mode-btn {
+    flex: 1 1 auto;
+    min-width: 80px;
+  }
+
+  .current-question {
+    padding: 1rem !important;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    padding: 0.7rem 1.5rem !important;
+    font-size: 0.95rem !important;
+  }
+}
+
+/* Landscape mode optimization */
+@media (max-height: 600px) and (orientation: landscape) {
+  header {
+    padding: 1rem !important;
+  }
+
+  header h1 {
+    font-size: 1.5rem !important;
+  }
+
+  header p {
+    display: none;
+  }
+
+  main {
+    padding: 1rem !important;
+  }
+
+  .interview-mode {
+    padding: 1rem !important;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Optimize for retina displays */
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

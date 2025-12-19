@@ -14,6 +14,10 @@ pub mod dashboard;
 pub mod trends;
 pub mod backup;
 pub mod cache;
+pub mod profile;
+pub mod recommendation;
+pub mod best_practices;
+pub mod industry;
 
 pub use content::ContentAnalyzer;
 pub use scoring::ScoringEngine;
@@ -23,3 +27,7 @@ pub use analytics::{AnalyticsEngine, TrendAnalytics, TrendDataPoint, Performance
 pub use dashboard::{DashboardService, DashboardData, DashboardStats, TopQuestion, WeakArea, RecentSessionInfo};
 pub use backup::{BackupManager, BackupData};
 pub use cache::{CacheManager, CacheEntry};
+pub use profile::ProfileGenerator;
+pub use recommendation::RecommendationEngine;
+pub use best_practices::BestPracticesExtractor;
+pub use industry::IndustryComparisonGenerator;

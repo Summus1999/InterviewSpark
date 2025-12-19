@@ -3,6 +3,9 @@
     <header>
       <h1>InterviewSpark</h1>
       <p>AI-Powered Mock Interview Platform</p>
+      <div class="header-actions">
+        <ThemeToggle />
+      </div>
     </header>
     <main>
       <!-- Phase 1 Test Section -->
@@ -62,6 +65,30 @@
             <ResumeInput v-model="resume" />
             <JobDescription v-model="jobDescription" />
             
+            <!-- Timer Settings -->
+            <div class="timer-settings-section">
+              <button @click="toggleTimerSettings" class="settings-toggle-btn">
+                ⏱️ {{ showTimerSettings ? '隐藏' : '显示' }}计时设置
+              </button>
+              <TimerSettings 
+                v-if="showTimerSettings"
+                v-model="timerSettings"
+                @update:modelValue="handleTimerSettingsChange"
+              />
+            </div>
+            
+            <!-- Follow-up Settings -->
+            <div class="followup-settings-section">
+              <button @click="toggleFollowUpSettings" class="settings-toggle-btn">
+                🔄 {{ showFollowUpSettings ? '隐藏' : '显示' }}追问设置
+              </button>
+              <FollowUpSettingsComp 
+                v-if="showFollowUpSettings"
+                v-model="followUpSettings"
+                @update:modelValue="handleFollowUpSettingsChange"
+              />
+            </div>
+            
             <div class="action-buttons">
               <button 
                 @click="generateQuestions" 
@@ -95,6 +122,19 @@
 
           <!-- Step 3: Interview -->
           <div v-if="currentStep === 'interview'" class="step-content">
+            <ProgressBar :current="currentQuestionIndex + 1" :total="questions.length" />
+            
+            <!-- Timer Display -->
+            <TimerDisplay
+              v-if="timerSettings.enabled"
+              ref="timerRef"
+              :time-limit="timerSettings.timePerQuestion"
+              :auto-start="true"
+              :show-warning="timerSettings.showWarning"
+              @timeout="handleTimerTimeout"
+              @warning="handleTimerWarning"
+            />
+            
             <div class="interview-progress">
               <span>问题 {{ currentQuestionIndex + 1 }} / {{ questions.length }}</span>
             </div>
@@ -147,6 +187,13 @@
               <div class="feedback-content" v-html="formattedFeedback"></div>
             </div>
             
+            <!-- Conversation History -->
+            <ConversationHistory 
+              v-if="conversationHistory.length > 0"
+              :turns="conversationHistory"
+              @clear="clearConversationHistory"
+            />
+            
             <div class="action-buttons">
               <button 
                 v-if="currentQuestionIndex < questions.length - 1"
@@ -167,6 +214,17 @@
               </button>
             </div>
           </div>
+
+          <!-- Step 5: Follow-up Panel -->
+          <div v-if="currentStep === 'followup'" class="step-content">
+            <FollowUpPanel 
+              v-if="followUpAnalysis"
+              :analysis="followUpAnalysis"
+              @select="selectFollowUpQuestion"
+              @skip="skipFollowUp"
+              @custom="currentStep = 'interview'"
+            />
+          </div>
         </div>
 
         <!-- History Mode -->
@@ -185,6 +243,13 @@
         </div>
       </section>
     </main>
+    
+    <!-- Completion Animation -->
+    <CompletionAnimation 
+      :show="showCompletionAnimation"
+      :message="`完成了 ${answersHistory.length} 个问题的回答，继续加油！`"
+      @close="closeCompletionAnimation"
+    />
   </div>
 </template>
 
@@ -198,8 +263,19 @@ import InterviewHistory from './components/InterviewHistory.vue'
 import QuestionBank from './components/QuestionBank.vue'
 import Dashboard from './components/Dashboard.vue'
 import VoiceControls from './components/VoiceControls.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
+import ProgressBar from './components/ProgressBar.vue'
+import CompletionAnimation from './components/CompletionAnimation.vue'
+import TimerDisplay from './components/TimerDisplay.vue'
+import TimerSettings from './components/TimerSettings.vue'
+import FollowUpSettingsComp from './components/FollowUpSettings.vue'
+import FollowUpPanel from './components/FollowUpPanel.vue'
+import ConversationHistory from './components/ConversationHistory.vue'
 import { createSession, saveAnswer } from './services/database'
 import { tts } from './services/voice'
+import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager } from './services/settings'
+import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
+import { DEFAULT_FOLLOWUP_SETTINGS } from './types/follow-up'
 
 // Phase 1 test variables
 const userName = ref('')
@@ -210,7 +286,7 @@ const showTest = ref(false)
 const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard'>('interview')
 
 // Phase 2 interview variables
-const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback'>('input')
+const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback' | 'followup'>('input')
 const resume = ref('')
 const jobDescription = ref('')
 const questions = ref<string[]>([])
@@ -226,6 +302,21 @@ const answersHistory = ref<Array<{ question: string; answer: string; feedback: s
 
 // Voice feature toggle
 const voiceEnabled = ref(true)
+
+// Completion animation state
+const showCompletionAnimation = ref(false)
+
+// Timer settings
+const timerSettings = ref<TimerConfig>(TimerSettingsManager.getSettings())
+const timerRef = ref<InstanceType<typeof TimerDisplay> | null>(null)
+const showTimerSettings = ref(false)
+
+// Follow-up settings and state
+const followUpSettings = ref<FollowUpSettings>(FollowUpSettingsManager.getSettings())
+const showFollowUpSettings = ref(false)
+const conversationHistory = ref<ConversationTurn[]>([])
+const followUpAnalysis = ref<FollowUpAnalysis | null>(null)
+const followUpCount = ref(0)  // Track how many follow-ups for current question
 
 const canGenerate = computed(() => {
   return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
@@ -348,6 +439,13 @@ const handleVoiceTranscript = (text: string) => {
 const submitAnswer = async () => {
   if (!currentAnswer.value.trim()) return
   
+  // Add candidate's answer to conversation history
+  conversationHistory.value.push({
+    role: 'candidate',
+    content: currentAnswer.value,
+    timestamp: Date.now()
+  })
+  
   isLoading.value = true
   error.value = ''
   
@@ -398,23 +496,21 @@ const nextQuestion = () => {
 }
 
 const nextQuestionAfterFeedback = async () => {
-  currentQuestionIndex.value++
-  currentAnswer.value = ''
-  currentFeedback.value = ''
-  currentStep.value = 'interview'
-  
-  // Auto-play next question
-  if (voiceEnabled.value) {
-    await nextTick()
-    playCurrentQuestion()
+  // Trigger follow-up analysis if enabled
+  if (followUpSettings.value.enabled) {
+    await analyzeForFollowUp()
+  } else {
+    proceedToNextQuestion()
   }
 }
 
 const finishInterview = () => {
-  // Show completion message
-  if (answersHistory.value.length > 0) {
-    alert(`面试完成！已保存 ${answersHistory.value.length} 个回答记录。`)
-  }
+  // Show completion animation
+  showCompletionAnimation.value = true
+}
+
+const closeCompletionAnimation = () => {
+  showCompletionAnimation.value = false
   
   // Reset state
   currentStep.value = 'input'
@@ -427,13 +523,139 @@ const finishInterview = () => {
   currentSessionId.value = null
   answersHistory.value = []
 }
+
+/**
+ * Timer event handlers
+ */
+const handleTimerTimeout = () => {
+  if (timerSettings.value.autoSubmit && currentAnswer.value.trim()) {
+    submitAnswer()
+  } else {
+    alert('时间到！请尽快提交答案。')
+  }
+}
+
+const handleTimerWarning = () => {
+  if (timerSettings.value.showWarning) {
+    console.log('⚠️ 警告：剩余时间不足30秒')
+  }
+}
+
+const handleTimerSettingsChange = (newSettings: TimerConfig) => {
+  timerSettings.value = newSettings
+  TimerSettingsManager.saveSettings(newSettings)
+  
+  // Restart timer if currently running
+  if (timerRef.value?.isRunning && currentStep.value === 'interview') {
+    timerRef.value.reset()
+  }
+}
+
+const toggleTimerSettings = () => {
+  showTimerSettings.value = !showTimerSettings.value
+}
+
+/**
+ * Follow-up event handlers
+ */
+const handleFollowUpSettingsChange = (newSettings: FollowUpSettings) => {
+  followUpSettings.value = newSettings
+  FollowUpSettingsManager.saveSettings(newSettings)
+}
+
+const toggleFollowUpSettings = () => {
+  showFollowUpSettings.value = !showFollowUpSettings.value
+}
+
+const analyzeForFollowUp = async () => {
+  if (!followUpSettings.value.enabled || followUpCount.value >= followUpSettings.value.maxFollowUps) {
+    proceedToNextQuestion()
+    return
+  }
+
+  isLoading.value = true
+  error.value = ''
+
+  try {
+    const historyText = conversationHistory.value
+      .map(turn => `${turn.role === 'interviewer' ? 'Interviewer' : 'Candidate'}: ${turn.content}`)
+      .join('\n\n')
+
+    const analysisJson = await invoke<string>('analyze_for_followup', {
+      originalQuestion: questions.value[currentQuestionIndex.value],
+      answer: currentAnswer.value,
+      conversationHistory: historyText,
+      jobDescription: jobDescription.value,
+      maxFollowups: followUpSettings.value.maxFollowUps - followUpCount.value,
+      preferredTypes: followUpSettings.value.preferredTypes
+    })
+
+    followUpAnalysis.value = JSON.parse(analysisJson)
+
+    if (followUpSettings.value.autoTrigger && followUpAnalysis.value?.shouldFollowUp) {
+      currentStep.value = 'followup'
+    } else {
+      proceedToNextQuestion()
+    }
+  } catch (err) {
+    console.error('Follow-up analysis failed:', err)
+    proceedToNextQuestion()
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const selectFollowUpQuestion = (question: string, type: FollowUpType) => {
+  // Add interviewer's follow-up to history
+  conversationHistory.value.push({
+    role: 'interviewer',
+    content: question,
+    timestamp: Date.now(),
+    questionType: type
+  })
+
+  // Update current question to follow-up
+  questions.value[currentQuestionIndex.value] = question
+  currentAnswer.value = ''
+  followUpCount.value++
+  currentStep.value = 'interview'
+
+  // Restart timer if enabled
+  if (timerRef.value) {
+    timerRef.value.reset()
+  }
+}
+
+const skipFollowUp = () => {
+  proceedToNextQuestion()
+}
+
+const proceedToNextQuestion = () => {
+  if (currentQuestionIndex.value < questions.value.length - 1) {
+    currentQuestionIndex.value++
+    currentAnswer.value = ''
+    currentStep.value = 'interview'
+    followUpCount.value = 0
+    conversationHistory.value = []
+
+    if (voiceEnabled.value) {
+      nextTick().then(() => playCurrentQuestion())
+    }
+  } else {
+    finishInterview()
+  }
+}
+
+const clearConversationHistory = () => {
+  conversationHistory.value = []
+}
 </script>
 
 <style scoped>
 .app-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--bg-primary);
+  color: var(--text-light);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
@@ -441,7 +663,8 @@ const finishInterview = () => {
 header {
   padding: 2rem;
   text-align: center;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid var(--border-color);
+  position: relative;
 }
 
 header h1 {
@@ -456,6 +679,12 @@ header p {
   opacity: 0.9;
 }
 
+.header-actions {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+}
+
 main {
   padding: 2rem;
 }
@@ -463,10 +692,10 @@ main {
 .welcome {
   max-width: 800px;
   margin: 2rem auto;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card);
   padding: 2rem;
   border-radius: 8px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: var(--backdrop-blur);
 }
 
 .welcome h2 {
@@ -489,10 +718,10 @@ main {
 
 .name-input {
   padding: 0.75rem 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--border-color);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: var(--bg-input);
+  color: var(--text-light);
   font-size: 1rem;
   width: 100%;
   max-width: 300px;
@@ -501,27 +730,27 @@ main {
 }
 
 .name-input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
 }
 
 .name-input:focus {
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: var(--border-hover);
 }
 
 .greet-btn {
   padding: 0.75rem 2rem;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  background: var(--bg-hover);
+  border: 2px solid var(--border-color);
   border-radius: 4px;
-  color: white;
+  color: var(--text-light);
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .greet-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.6);
+  background: var(--bg-input);
+  border-color: var(--border-hover);
 }
 
 .greeting-message {
@@ -535,7 +764,7 @@ main {
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem;
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 12px;
 }
 
@@ -551,7 +780,7 @@ main {
 .mode-header h2 {
   margin: 0;
   font-size: 1.8rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .mode-actions {
@@ -562,38 +791,38 @@ main {
 
 .mode-btn {
   padding: 0.6rem 1.2rem;
-  background: white;
-  border: 2px solid #e0e0e0;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
   border-radius: 6px;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.3s;
   font-size: 0.95rem;
 }
 
 .mode-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 .mode-btn.active {
-  background: #667eea;
-  border-color: #667eea;
-  color: white;
+  background: var(--accent-gradient);
+  border-color: var(--accent-primary);
+  color: var(--text-light);
 }
 
 .toggle-btn {
   padding: 0.6rem 1.2rem;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
   border-radius: 6px;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .toggle-btn:hover {
-  background: #e0e0e0;
+  background: var(--bg-hover);
 }
 
 .step-content {
@@ -609,8 +838,8 @@ main {
 
 .primary-btn {
   padding: 0.8rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--accent-gradient);
+  color: var(--text-light);
   border: none;
   border-radius: 8px;
   font-size: 1rem;
@@ -631,9 +860,9 @@ main {
 
 .secondary-btn {
   padding: 0.8rem 2rem;
-  background: white;
-  color: #667eea;
-  border: 2px solid #667eea;
+  background: var(--bg-secondary);
+  color: var(--accent-primary);
+  border: 2px solid var(--accent-primary);
   border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
@@ -642,32 +871,32 @@ main {
 }
 
 .secondary-btn:hover {
-  background: #f8f9ff;
+  background: var(--bg-hover);
 }
 
 .error-message {
-  color: #e53e3e;
+  color: var(--error-color);
   text-align: center;
   margin-top: 1rem;
   padding: 1rem;
-  background: #fff5f5;
+  background: rgba(244, 67, 54, 0.1);
   border-radius: 8px;
 }
 
 .interview-progress {
   text-align: center;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 2rem;
   padding: 0.8rem;
-  background: #f8f9ff;
+  background: var(--bg-card);
   border-radius: 8px;
 }
 
 .current-question {
   padding: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--accent-gradient);
+  color: var(--text-light);
   border-radius: 12px;
   margin-bottom: 2rem;
 }
@@ -681,43 +910,73 @@ main {
 .answer-input h4 {
   margin: 0 0 1rem;
   font-size: 1.1rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .answer-textarea {
   width: 100%;
   padding: 1rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-light);
   border-radius: 8px;
   font-size: 1rem;
   line-height: 1.6;
   font-family: inherit;
   resize: vertical;
   transition: border-color 0.3s;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .answer-textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--accent-primary);
 }
 
 .feedback-card {
   padding: 2rem;
-  background: #f8f9ff;
+  background: var(--bg-card-solid);
   border-radius: 12px;
-  border: 2px solid #667eea;
+  border: 2px solid var(--accent-primary);
 }
 
 .feedback-card h3 {
   margin: 0 0 1.5rem;
   font-size: 1.4rem;
-  color: #667eea;
+  color: var(--accent-primary);
 }
 
 .feedback-content {
   font-size: 1rem;
   line-height: 1.8;
-  color: #333;
+  color: var(--text-primary);
   white-space: pre-wrap;
+}
+
+/* Timer Settings Section */
+.timer-settings-section,
+.followup-settings-section {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-toggle-btn {
+  padding: 0.8rem 1.5rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  max-width: 200px;
+}
+
+.settings-toggle-btn:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+  transform: translateY(-2px);
 }
 </style>

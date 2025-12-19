@@ -70,6 +70,25 @@ CREATE TABLE IF NOT EXISTS question_bank (
     updated_at TEXT NOT NULL
 );
 
+-- Question tags table
+CREATE TABLE IF NOT EXISTS question_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT DEFAULT '#667eea',
+    created_at TEXT NOT NULL
+);
+
+-- Question tag mappings table (many-to-many)
+CREATE TABLE IF NOT EXISTS question_tag_mappings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_bank_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (question_bank_id) REFERENCES question_bank(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES question_tags(id) ON DELETE CASCADE,
+    UNIQUE(question_bank_id, tag_id)
+);
+
 -- Answer analysis table
 CREATE TABLE IF NOT EXISTS answer_analysis (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,6 +142,8 @@ CREATE INDEX IF NOT EXISTS idx_session_reports_session_id ON session_reports(ses
 CREATE INDEX IF NOT EXISTS idx_performance_stats_date ON performance_stats(session_date);
 CREATE INDEX IF NOT EXISTS idx_interview_answers_session_id ON interview_answers(session_id);
 CREATE INDEX IF NOT EXISTS idx_interview_sessions_created_at ON interview_sessions(created_at);
+CREATE INDEX IF NOT EXISTS idx_tag_mappings_question_id ON question_tag_mappings(question_bank_id);
+CREATE INDEX IF NOT EXISTS idx_tag_mappings_tag_id ON question_tag_mappings(tag_id);
 "#;
 
 /// Initialize database and create tables

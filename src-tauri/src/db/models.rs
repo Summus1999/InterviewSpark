@@ -105,6 +105,107 @@ pub struct PerformanceStats {
     pub recorded_at: String,
 }
 
+/// Question tag entity
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuestionTag {
+    pub id: Option<i64>,
+    pub name: String,
+    pub color: String,
+    pub created_at: String,
+}
+
+/// Question tag mapping entity
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TagMapping {
+    pub id: Option<i64>,
+    pub question_bank_id: i64,
+    pub tag_id: i64,
+    pub created_at: String,
+}
+
+/// Interview profile dimension scores
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileDimension {
+    pub technical_depth: f32,        // Technical depth score (0-100)
+    pub communication: f32,          // Communication score (0-100)
+    pub problem_solving: f32,        // Problem solving score (0-100)
+    pub domain_knowledge: f32,       // Domain knowledge score (0-100)
+    pub adaptability: f32,           // Adaptability score (0-100)
+}
+
+/// Complete interview profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InterviewProfile {
+    pub user_id: String,
+    pub dimensions: ProfileDimension,
+    pub total_sessions: i32,
+    pub average_score: f32,
+    pub strongest_dimension: String,
+    pub weakest_dimension: String,
+    pub improvement_suggestions: Vec<String>,
+    pub generated_at: String,
+}
+
+/// Practice recommendation item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PracticeRecommendation {
+    pub question_id: i64,
+    pub question: String,
+    pub reason: String,
+    pub priority: u8,              // 1-5, higher is more important
+    pub dimension: String,          // Which dimension this targets
+    pub estimated_improvement: f32, // Expected score improvement
+}
+
+/// Recommendation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecommendationResult {
+    pub recommendations: Vec<PracticeRecommendation>,
+    pub weak_dimensions: Vec<String>,
+    pub total_available: i32,
+    pub generated_at: String,
+}
+
+/// Best practice extracted from high-scoring answers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BestPractice {
+    pub question: String,
+    pub answer: String,
+    pub score: f32,
+    pub session_id: i64,
+    pub extracted_at: String,
+    pub key_points: Vec<String>,
+}
+
+/// Best practices result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BestPracticesResult {
+    pub practices: Vec<BestPractice>,
+    pub total_analyzed: i32,
+    pub threshold_score: f32,
+    pub generated_at: String,
+}
+
+/// Industry benchmark data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndustryBenchmark {
+    pub dimension: String,
+    pub user_score: f32,
+    pub industry_avg: f32,
+    pub industry_top: f32,
+    pub percentile: f32,        // User's percentile rank (0-100)
+}
+
+/// Industry comparison result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndustryComparisonResult {
+    pub benchmarks: Vec<IndustryBenchmark>,
+    pub overall_percentile: f32,
+    pub user_level: String,      // "Beginner", "Intermediate", "Advanced", "Expert"
+    pub comparison_count: i32,   // Number of sessions used for comparison
+    pub generated_at: String,
+}
+
 /// Helper function to get current timestamp as ISO 8601 string
 pub fn now() -> String {
     Utc::now().to_rfc3339()

@@ -2,6 +2,9 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
+use super::retry::RetryPolicy;
+use futures::StreamExt;
+use eventsource_stream::Eventsource;
 
 /// SiliconFlow API client configuration
 #[derive(Clone)]
@@ -10,6 +13,7 @@ pub struct SiliconFlowClient {
     base_url: String,
     model: String,
     client: Client,
+    retry_policy: RetryPolicy,
 }
 
 /// Chat message structure
@@ -20,12 +24,14 @@ pub struct ChatMessage {
 }
 
 /// Chat completion request
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct ChatCompletionRequest {
     model: String,
     messages: Vec<ChatMessage>,
     temperature: f32,
     max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stream: Option<bool>,
 }
 
 /// Chat completion response
@@ -103,10 +109,11 @@ impl SiliconFlowClient {
             base_url,
             model,
             client,
+            retry_policy: RetryPolicy::default(),
         })
     }
 
-    /// Call chat completion API
+    /// Call chat completion API with retry logic
     pub async fn chat_completion(
         &self,
         messages: Vec<ChatMessage>,
@@ -117,9 +124,59 @@ impl SiliconFlowClient {
         
         let request = ChatCompletionRequest {
             model: self.model.clone(),
+            messages: messages.clone(),
+            temperature: temperature.unwrap_or(0.7),
+            max_tokens,
+            stream: None,
+        };
+
+        // Execute with retry
+        self.retry_policy.execute(|| async {
+            let response = self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", self.api_key))
+                .header("Content-Type", "application/json")
+                .json(&request)
+                .send()
+                .await
+                .context("Failed to send request to SiliconFlow API")?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                anyhow::bail!("API request failed with status {}: {}", status, error_text);
+            }
+
+            let completion: ChatCompletionResponse = response
+                .json()
+                .await
+                .context("Failed to parse API response")?;
+
+            completion
+                .choices
+                .first()
+                .map(|c| c.message.content.clone())
+                .context("No choices in API response")
+        }).await
+    }
+
+    /// Call chat completion API with streaming support
+    /// Returns a stream of content chunks
+    pub async fn chat_completion_stream(
+        &self,
+        messages: Vec<ChatMessage>,
+        temperature: Option<f32>,
+        max_tokens: Option<u32>,
+    ) -> Result<impl futures::Stream<Item = Result<String>>> {
+        let url = format!("{}/chat/completions", self.base_url);
+        
+        let request = ChatCompletionRequest {
+            model: self.model.clone(),
             messages,
             temperature: temperature.unwrap_or(0.7),
             max_tokens,
+            stream: Some(true),
         };
 
         let response = self
@@ -130,24 +187,58 @@ impl SiliconFlowClient {
             .json(&request)
             .send()
             .await
-            .context("Failed to send request to SiliconFlow API")?;
+            .context("Failed to send streaming request")?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            anyhow::bail!("API request failed with status {}: {}", status, error_text);
+            anyhow::bail!("Streaming request failed with status {}: {}", status, error_text);
         }
 
-        let completion: ChatCompletionResponse = response
-            .json()
-            .await
-            .context("Failed to parse API response")?;
+        // Create event source stream
+        let stream = response
+            .bytes_stream()
+            .eventsource()
+            .map(|event| {
+                match event {
+                    Ok(event) => {
+                        // Parse SSE data
+                        let data = event.data;
+                        
+                        // Check for completion marker
+                        if data.trim() == "[DONE]" {
+                            return Ok(String::new());
+                        }
+                        
+                        // Parse JSON response
+                        match serde_json::from_str::<serde_json::Value>(&data) {
+                            Ok(json) => {
+                                // Extract content from delta
+                                if let Some(choices) = json.get("choices").and_then(|c| c.as_array()) {
+                                    if let Some(first_choice) = choices.first() {
+                                        if let Some(delta) = first_choice.get("delta") {
+                                            if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                                return Ok(content.to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                                Ok(String::new())
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to parse SSE data: {}", e);
+                                Ok(String::new())
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Stream error: {}", e);
+                        Err(anyhow::anyhow!("Stream error: {}", e))
+                    }
+                }
+            });
 
-        completion
-            .choices
-            .first()
-            .map(|c| c.message.content.clone())
-            .context("No choices in API response")
+        Ok(stream)
     }
 
     /// Generate interview questions based on resume and job description
@@ -254,5 +345,69 @@ impl SiliconFlowClient {
         ];
 
         self.chat_completion(messages, Some(0.7), Some(2500)).await
+    }
+
+    /// Analyze answer and determine if follow-up is needed
+    pub async fn analyze_for_followup(
+        &self,
+        original_question: &str,
+        answer: &str,
+        conversation_history: &str,
+        job_description: &str,
+        max_followups: u32,
+        preferred_types: &[String],
+    ) -> Result<String> {
+        let system_prompt = "You are an experienced interviewer analyzing candidate answers to determine if follow-up questions are needed. You MUST respond with ONLY valid JSON, no additional text.";
+        
+        let user_prompt = format!(
+            r#"Original Question: {}
+
+Candidate's Answer: {}
+
+Conversation History:
+{}
+
+Job Description: {}
+
+Max Follow-ups: {}
+Preferred Types: {:?}
+
+Analyze this answer and respond with ONLY a JSON object in this exact format:
+{{
+  "shouldFollowUp": true/false,
+  "answerQuality": "excellent"|"good"|"acceptable"|"poor",
+  "reasoning": "brief explanation",
+  "followUpQuestions": [
+    {{
+      "question": "the follow-up question",
+      "type": "clarification"|"deepening"|"scenario"|"challenge"|"extension",
+      "reason": "why ask this",
+      "context": "brief context"
+    }}
+  ]
+}}
+
+IMPORTANT: Return ONLY the JSON object, no markdown, no explanations.
+只返回JSON对象，不要任何其他文字。"#,
+            original_question,
+            answer,
+            conversation_history,
+            job_description,
+            max_followups,
+            preferred_types
+        );
+
+        let messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: system_prompt.to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: user_prompt,
+            },
+        ];
+
+        self.chat_completion(messages, Some(0.7), Some(2000)).await
     }
 }

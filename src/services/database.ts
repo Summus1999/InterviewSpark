@@ -46,6 +46,14 @@ export interface QuestionBankItem {
   job_category?: string
   created_at: string
   updated_at: string
+  tags?: QuestionTag[]
+}
+
+export interface QuestionTag {
+  id?: number
+  name: string
+  color: string
+  created_at: string
 }
 
 export interface SessionReport {
@@ -229,6 +237,39 @@ export async function deleteFromBank(id: number): Promise<void> {
   return await invoke('db_delete_from_bank', { id })
 }
 
+// Question tag operations
+export async function createTag(name: string, color: string): Promise<number> {
+  return await invoke('db_create_tag', { name, color })
+}
+
+export async function getAllTags(): Promise<QuestionTag[]> {
+  return await invoke('db_get_all_tags')
+}
+
+export async function updateTag(id: number, name: string, color: string): Promise<void> {
+  return await invoke('db_update_tag', { id, name, color })
+}
+
+export async function deleteTag(id: number): Promise<void> {
+  return await invoke('db_delete_tag', { id })
+}
+
+export async function addTagToQuestion(questionId: number, tagId: number): Promise<void> {
+  return await invoke('db_add_tag_to_question', { questionId, tagId })
+}
+
+export async function removeTagFromQuestion(questionId: number, tagId: number): Promise<void> {
+  return await invoke('db_remove_tag_from_question', { questionId, tagId })
+}
+
+export async function getTagsForQuestion(questionId: number): Promise<QuestionTag[]> {
+  return await invoke('db_get_tags_for_question', { questionId })
+}
+
+export async function getQuestionsByTag(tagId: number): Promise<QuestionBankItem[]> {
+  return await invoke('db_get_questions_by_tag', { tagId })
+}
+
 // Report operations
 export async function generateReport(sessionId: number): Promise<SessionReport> {
   return await invoke('generate_comprehensive_report', { sessionId })
@@ -337,4 +378,105 @@ export async function getReportsByDateRange(
   endDate: string
 ): Promise<SessionReport[]> {
   return await invoke('get_reports_by_date_range', { startDate, endDate })
+}
+
+// Profile operations
+export interface ProfileDimension {
+  technical_depth: number
+  communication: number
+  problem_solving: number
+  domain_knowledge: number
+  adaptability: number
+}
+
+export interface InterviewProfile {
+  user_id: string
+  dimensions: ProfileDimension
+  total_sessions: number
+  average_score: number
+  strongest_dimension: string
+  weakest_dimension: string
+  improvement_suggestions: string[]
+  generated_at: string
+}
+
+export async function generateInterviewProfile(
+  userId: string = 'default_user',
+  sessionLimit?: number
+): Promise<InterviewProfile> {
+  return await invoke('generate_interview_profile', { 
+    userId, 
+    sessionLimit: sessionLimit || null 
+  })
+}
+
+// Recommendation operations
+export interface PracticeRecommendation {
+  question_id: number
+  question: string
+  reason: string
+  priority: number
+  dimension: string
+  estimated_improvement: number
+}
+
+export interface RecommendationResult {
+  recommendations: PracticeRecommendation[]
+  weak_dimensions: string[]
+  total_available: number
+  generated_at: string
+}
+
+export async function generatePracticeRecommendations(
+  userId: string = 'default_user',
+  limit: number = 5
+): Promise<RecommendationResult> {
+  return await invoke('generate_practice_recommendations', { userId, limit })
+}
+
+// Best practices operations
+export interface BestPractice {
+  question: string
+  answer: string
+  score: number
+  session_id: number
+  extracted_at: string
+  key_points: string[]
+}
+
+export interface BestPracticesResult {
+  practices: BestPractice[]
+  total_analyzed: number
+  threshold_score: number
+  generated_at: string
+}
+
+export async function extractBestPractices(
+  scoreThreshold: number = 7.5,
+  limit: number = 10
+): Promise<BestPracticesResult> {
+  return await invoke('extract_best_practices', { scoreThreshold, limit })
+}
+
+// Industry comparison operations
+export interface IndustryBenchmark {
+  dimension: string
+  user_score: number
+  industry_avg: number
+  industry_top: number
+  percentile: number
+}
+
+export interface IndustryComparisonResult {
+  benchmarks: IndustryBenchmark[]
+  overall_percentile: number
+  user_level: string
+  comparison_count: number
+  generated_at: string
+}
+
+export async function generateIndustryComparison(
+  userId: string = 'default_user'
+): Promise<IndustryComparisonResult> {
+  return await invoke('generate_industry_comparison', { userId })
 }

@@ -957,4 +957,133 @@ impl Repository {
         
         Ok(reports)
     }
+
+    // ===== Question Tag Operations =====
+
+    /// Create a new tag
+    pub fn create_tag(&self, name: String, color: String) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT INTO question_tags (name, color, created_at) VALUES (?1, ?2, ?3)",
+            params![name, color, timestamp],
+        )?;
+        
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Get all tags
+    pub fn get_all_tags(&self) -> Result<Vec<QuestionTag>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, color, created_at FROM question_tags ORDER BY name"
+        )?;
+        
+        let tags = stmt
+            .query_map([], |row| {
+                Ok(QuestionTag {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(tags)
+    }
+
+    /// Update a tag
+    pub fn update_tag(&self, id: i64, name: String, color: String) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE question_tags SET name = ?1, color = ?2 WHERE id = ?3",
+            params![name, color, id],
+        )?;
+        Ok(())
+    }
+
+    /// Delete a tag
+    pub fn delete_tag(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM question_tags WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    /// Add a tag to a question
+    pub fn add_tag_to_question(&self, question_id: i64, tag_id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT OR IGNORE INTO question_tag_mappings (question_bank_id, tag_id, created_at) VALUES (?1, ?2, ?3)",
+            params![question_id, tag_id, timestamp],
+        )?;
+        
+        Ok(())
+    }
+
+    /// Remove a tag from a question
+    pub fn remove_tag_from_question(&self, question_id: i64, tag_id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM question_tag_mappings WHERE question_bank_id = ?1 AND tag_id = ?2",
+            params![question_id, tag_id],
+        )?;
+        Ok(())
+    }
+
+    /// Get tags for a specific question
+    pub fn get_tags_for_question(&self, question_id: i64) -> Result<Vec<QuestionTag>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.name, t.color, t.created_at \
+             FROM question_tags t \
+             JOIN question_tag_mappings m ON t.id = m.tag_id \
+             WHERE m.question_bank_id = ?1 \
+             ORDER BY t.name"
+        )?;
+        
+        let tags = stmt
+            .query_map(params![question_id], |row| {
+                Ok(QuestionTag {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(tags)
+    }
+
+    /// Get questions by tag
+    pub fn get_questions_by_tag(&self, tag_id: i64) -> Result<Vec<QuestionBankItem>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT q.id, q.question, q.best_answer, q.notes, q.job_category, q.created_at, q.updated_at \
+             FROM question_bank q \
+             JOIN question_tag_mappings m ON q.id = m.question_bank_id \
+             WHERE m.tag_id = ?1 \
+             ORDER BY q.updated_at DESC"
+        )?;
+        
+        let questions = stmt
+            .query_map(params![tag_id], |row| {
+                Ok(QuestionBankItem {
+                    id: Some(row.get(0)?),
+                    question: row.get(1)?,
+                    best_answer: row.get(2)?,
+                    notes: row.get(3)?,
+                    job_category: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(questions)
+    }
 }

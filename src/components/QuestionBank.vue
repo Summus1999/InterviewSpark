@@ -11,6 +11,29 @@
   <div class="question-bank">
     <h3>题库管理</h3>
     
+    <!-- Tag Manager Section -->
+    <TagManager @tags-updated="onTagsUpdated" />
+    
+    <!-- Tag Filter -->
+    <div class="tag-filter" v-if="allTags.length > 0">
+      <span class="filter-label">按标签筛选:</span>
+      <button
+        :class="['filter-tag', { active: !selectedTagId }]"
+        @click="selectedTagId = null"
+      >
+        全部
+      </button>
+      <button
+        v-for="tag in allTags"
+        :key="tag.id"
+        :class="['filter-tag', { active: selectedTagId === tag.id }]"
+        :style="selectedTagId === tag.id ? { backgroundColor: tag.color, color: 'white' } : {}"
+        @click="selectedTagId = tag.id!"
+      >
+        {{ tag.name }}
+      </button>
+    </div>
+    
     <div class="add-section">
       <h4>添加新问题</h4>
       <input
@@ -36,19 +59,29 @@
       </button>
     </div>
     
-    <div v-if="bank.length === 0" class="empty-state">
-      <p>题库为空，快来添加问题吧！</p>
+    <div v-if="filteredBank.length === 0" class="empty-state">
+      <p v-if="selectedTagId">该标签下没有问题</p>
+      <p v-else>题库为空，快来添加问题吧！</p>
     </div>
     
     <div v-else class="bank-list">
       <div
-        v-for="item in bank"
+        v-for="item in filteredBank"
         :key="item.id"
         class="bank-item"
       >
         <div class="item-header">
           <span class="item-question">{{ item.question }}</span>
           <button @click="deleteItem(item.id!)" class="delete-btn">删除</button>
+        </div>
+        
+        <!-- Tags for this question -->
+        <div class="item-tags">
+          <TagSelector
+            v-if="item.id"
+            :question-id="item.id"
+            @tags-changed="loadBank"
+          />
         </div>
         
         <div v-if="item.job_category" class="item-category">
@@ -67,13 +100,12 @@
         </div>
         
         <div class="item-notes">
-          <strong>备注:</strong>
-          <textarea
+          <MarkdownNotes
             v-model="item.notes"
+            label="备注"
+            placeholder="添加备注（支持 Markdown）..."
+            :rows="3"
             @blur="updateItem(item)"
-            placeholder="添加备注..."
-            rows="2"
-            class="edit-textarea"
           />
         </div>
         
@@ -93,25 +125,56 @@
  * Question bank management component
  * Allows users to save and manage frequently asked questions
  */
-import { ref, onMounted } from 'vue'
-import type { QuestionBankItem } from '../services/database'
-import { getBank, addToBank, updateBankItem, deleteFromBank } from '../services/database'
+import { ref, computed, onMounted, watch } from 'vue'
+import type { QuestionBankItem, QuestionTag } from '../services/database'
+import { getBank, addToBank, updateBankItem, deleteFromBank, getAllTags, getQuestionsByTag } from '../services/database'
+import TagManager from './TagManager.vue'
+import TagSelector from './TagSelector.vue'
+import MarkdownNotes from './MarkdownNotes.vue'
 
 const bank = ref<QuestionBankItem[]>([])
+const allTags = ref<QuestionTag[]>([])
+const selectedTagId = ref<number | null>(null)
 const newQuestion = ref('')
 const newAnswer = ref('')
 const newCategory = ref('')
 
+const filteredBank = computed(() => {
+  if (!selectedTagId.value) return bank.value
+  return bank.value
+})
+
+watch(selectedTagId, async () => {
+  await loadBank()
+})
+
 onMounted(async () => {
   await loadBank()
+  await loadTags()
 })
 
 const loadBank = async () => {
   try {
-    bank.value = await getBank()
+    if (selectedTagId.value) {
+      bank.value = await getQuestionsByTag(selectedTagId.value)
+    } else {
+      bank.value = await getBank()
+    }
   } catch (error) {
     console.error('Failed to load question bank:', error)
   }
+}
+
+const loadTags = async () => {
+  try {
+    allTags.value = await getAllTags()
+  } catch (error) {
+    console.error('Failed to load tags:', error)
+  }
+}
+
+const onTagsUpdated = async () => {
+  await loadTags()
 }
 
 const addQuestion = async () => {
@@ -351,5 +414,47 @@ h4 {
   border-top: 1px solid #e0e0e0;
   font-size: 0.85rem;
   color: #999;
+}
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary, #f8f9ff);
+  border-radius: 8px;
+}
+
+.filter-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #666);
+  margin-right: 0.5rem;
+}
+
+.filter-tag {
+  padding: 0.3rem 0.8rem;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 15px;
+  font-size: 0.85rem;
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-tag:hover {
+  border-color: #667eea;
+}
+
+.filter-tag.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.item-tags {
+  margin-bottom: 1rem;
 }
 </style>
