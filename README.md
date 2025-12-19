@@ -132,16 +132,28 @@ src/                      # Vue 3 前端代码
     GrowthView.vue        # 成长曲线页面
     ReportView.vue        # 复盘报告展示
     AnswerComparison.vue  # 答案对比组件
+    FeedbackDisplay.vue   # AI 流式反馈展示
+  composables/            # Vue Composition API
+    useStreaming.ts       # 流式响应处理
+    useAutoSave.ts        # 自动保存草稿
+    useDataPreloader.ts   # 数据预加载
+  stores/                 # Pinia 状态管理
+    questionBank.ts       # 题库缓存 Store
+    session.ts            # 会话历史缓存 Store
   services/               # 服务层
     database.ts           # 数据库服务接口
     voice.ts              # 语音服务（TTS/ASR）
+    streaming.ts          # 流式响应服务
+    errorHandler.ts       # 统一错误处理
+    draftStorage.ts       # IndexedDB 草稿存储
 src-tauri/                # Rust 后端代码
   src/
     lib.rs                # Tauri 应用入口和命令定义
     main.rs               # Rust 程序入口
     api/                  # API 模块
       mod.rs              # 模块入口
-      siliconflow.rs      # 硅基流动 API 客户端
+      siliconflow.rs      # 硅基流动 API 客户端（支持流式输出）
+      retry.rs            # 重试策略（指数退避）
     db/                   # 数据库模块
       mod.rs              # 模块入口
       models.rs           # 数据模型定义
@@ -172,14 +184,17 @@ ProductionDoc.md          # 产品文档
 - **应用框架**: Tauri 2.x
 - **后端语言**: Rust (edition 2021)
 - **前端框架**: Vue 3.5 + TypeScript
+- **状态管理**: Pinia
 - **构建工具**: Vite 7.x
 - **代码规范**: ESLint + Prettier
-- **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)
+- **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)，支持流式输出
 - **数据库**: SQLite + rusqlite
+- **本地存储**: IndexedDB（草稿自动保存）
 - **语音能力**: Web Speech API (TTS + ASR)
 - **图表库**: ECharts + vue-echarts
-- **HTTP 客户端**: reqwest
+- **HTTP 客户端**: reqwest（支持流式请求）
 - **异步运行时**: tokio
+- **SSE 解析**: eventsource-stream
 
 ## 功能特性
 
@@ -196,3 +211,8 @@ ProductionDoc.md          # 产品文档
 - **数据仪表板** (Phase 5): 综合数据概览和热门问题统计
 - **答案对比** (Phase 5): 同一问题不同时期答案对比
 - **数据备份** (Phase 5): 支持 JSON 全量导出和导入
+- **技术优化** (Phase 6):
+  - AI 流式输出: 打字机效果实时显示 AI 反馈
+  - API 重试机制: 指数退避策略，提升请求稳定性
+  - 数据预加载: Pinia 缓存常用数据，减少加载延迟
+  - 草稿自动保存: IndexedDB 本地存储，防止数据丢失
