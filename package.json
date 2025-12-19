@@ -27,6 +27,8 @@
   "homepage": "https://github.com/Summus1999/InterviewSpark#readme",
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
+    "echarts": "^6.0.0",
     "vue": "^3.5.25"
   },
   "devDependencies": {

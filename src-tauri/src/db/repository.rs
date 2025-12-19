@@ -465,4 +465,496 @@ impl Repository {
         
         Ok(stats)
     }
+
+    // ===== Analytics Operations =====
+
+    /// Get historical reports for trend analysis
+    pub fn get_historical_reports(&self, time_range: Option<i64>) -> Result<Vec<(i64, f32, f32, f32, f32, f32)>> {
+        let conn = self.conn.lock().unwrap();
+        
+        let query = match time_range {
+            Some(timestamp) => {
+                format!(
+                    "SELECT s.created_at, r.overall_score, \
+                     COALESCE(json_extract(r.content_analysis, '$.communication_score'), 0.0), \
+                     COALESCE(json_extract(r.content_analysis, '$.problem_solving_score'), 0.0), \
+                     COALESCE(json_extract(r.content_analysis, '$.technical_depth_score'), 0.0), \
+                     COALESCE(json_extract(r.content_analysis, '$.presentation_score'), 0.0) \
+                     FROM session_reports r \
+                     JOIN interview_sessions s ON r.session_id = s.id \
+                     WHERE s.created_at >= {} \
+                     ORDER BY s.created_at ASC", timestamp
+                )
+            },
+            None => {
+                "SELECT s.created_at, r.overall_score, \
+                 COALESCE(json_extract(r.content_analysis, '$.communication_score'), 0.0), \
+                 COALESCE(json_extract(r.content_analysis, '$.problem_solving_score'), 0.0), \
+                 COALESCE(json_extract(r.content_analysis, '$.technical_depth_score'), 0.0), \
+                 COALESCE(json_extract(r.content_analysis, '$.presentation_score'), 0.0) \
+                 FROM session_reports r \
+                 JOIN interview_sessions s ON r.session_id = s.id \
+                 ORDER BY s.created_at ASC".to_string()
+            }
+        };
+        
+        let mut stmt = conn.prepare(&query)?;
+        
+        let reports = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,  // timestamp
+                    row.get(1)?,  // overall_score
+                    row.get(2)?,  // communication_score
+                    row.get(3)?,  // problem_solving_score
+                    row.get(4)?,  // technical_depth_score
+                    row.get(5)?,  // presentation_score
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(reports)
+    }
+
+    /// Get statistics for performance analytics
+    pub fn get_statistics(&self, time_range: Option<i64>) -> Result<(i32, f32, f32, f32, String)> {
+        let conn = self.conn.lock().unwrap();
+        
+        let query = match time_range {
+            Some(timestamp) => {
+                format!(
+                    "SELECT COUNT(*), AVG(r.overall_score), MAX(r.overall_score) \
+                     FROM session_reports r \
+                     JOIN interview_sessions s ON r.session_id = s.id \
+                     WHERE s.created_at >= {}", timestamp
+                )
+            },
+            None => {
+                "SELECT COUNT(*), AVG(r.overall_score), MAX(r.overall_score) \
+                 FROM session_reports r \
+                 JOIN interview_sessions s ON r.session_id = s.id".to_string()
+            }
+        };
+        
+        let (total_sessions, average_overall, highest_overall): (i32, f32, f32) = conn
+            .query_row(&query, [], |row| {
+                Ok((
+                    row.get(0).unwrap_or(0),
+                    row.get(1).unwrap_or(0.0),
+                    row.get(2).unwrap_or(0.0),
+                ))
+            })?;
+        
+        // Calculate improvement rate: compare first 5 and last 5 sessions
+        let improvement_rate = if total_sessions >= 5 {
+            let first_avg: f32 = conn
+                .query_row(
+                    "SELECT AVG(r.overall_score) \
+                     FROM session_reports r \
+                     JOIN interview_sessions s ON r.session_id = s.id \
+                     ORDER BY s.created_at ASC LIMIT 5",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0.0);
+            
+            let last_avg: f32 = conn
+                .query_row(
+                    "SELECT AVG(r.overall_score) \
+                     FROM session_reports r \
+                     JOIN interview_sessions s ON r.session_id = s.id \
+                     ORDER BY s.created_at DESC LIMIT 5",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0.0);
+            
+            if first_avg > 0.0 {
+                ((last_avg - first_avg) / first_avg) * 100.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+        
+        // Determine trend: compare recent 3 vs previous 3
+        let recent_trend = if total_sessions >= 6 {
+            let recent_avg: f32 = conn
+                .query_row(
+                    "SELECT AVG(r.overall_score) \
+                     FROM session_reports r \
+                     JOIN interview_sessions s ON r.session_id = s.id \
+                     ORDER BY s.created_at DESC LIMIT 3",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0.0);
+            
+            let previous_avg: f32 = conn
+                .query_row(
+                    "SELECT AVG(r.overall_score) \
+                     FROM session_reports r \
+                     JOIN interview_sessions s ON r.session_id = s.id \
+                     ORDER BY s.created_at DESC LIMIT 3 OFFSET 3",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0.0);
+            
+            let diff = recent_avg - previous_avg;
+            if diff > 2.0 {
+                "improving".to_string()
+            } else if diff < -2.0 {
+                "declining".to_string()
+            } else {
+                "stable".to_string()
+            }
+        } else {
+            "stable".to_string()
+        };
+        
+        Ok((total_sessions, average_overall, highest_overall, improvement_rate, recent_trend))
+    }
+
+    // ===== Dashboard Operations =====
+
+    /// Get total interview sessions count
+    pub fn get_total_sessions_count(&self) -> Result<i32> {
+        let conn = self.conn.lock().unwrap();
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM interview_sessions",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
+    /// Get average score across all sessions
+    pub fn get_average_score(&self) -> Result<f32> {
+        let conn = self.conn.lock().unwrap();
+        let avg: f32 = conn.query_row(
+            "SELECT AVG(overall_score) FROM session_reports",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+        Ok(avg)
+    }
+
+    /// Get highest score achieved
+    pub fn get_highest_score(&self) -> Result<f32> {
+        let conn = self.conn.lock().unwrap();
+        let highest: f32 = conn.query_row(
+            "SELECT MAX(overall_score) FROM session_reports",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+        Ok(highest)
+    }
+
+    /// Get top questions by frequency
+    pub fn get_top_questions(&self, limit: i32) -> Result<Vec<(String, i32)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT question, COUNT(*) as count FROM interview_answers \
+             GROUP BY question \
+             ORDER BY count DESC \
+             LIMIT ?1"
+        )?;
+
+        let questions = stmt
+            .query_map([limit], |row| {
+                Ok((
+                    row.get(0)?,  // question
+                    row.get(1)?,  // count
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(questions)
+    }
+
+    /// Get weak areas based on average scores per dimension
+    pub fn get_weak_areas(&self) -> Result<Vec<(String, f32)>> {
+        let conn = self.conn.lock().unwrap();
+        
+        // For simplicity, we'll calculate from the analysis data in content_analysis JSON
+        // This is a basic implementation that returns dimension scores
+        let mut stmt = conn.prepare(
+            "SELECT \
+             CASE \
+               WHEN avg_communication < avg_overall THEN 'Communication' \
+               WHEN avg_problem_solving < avg_overall THEN 'Problem Solving' \
+               WHEN avg_technical_depth < avg_overall THEN 'Technical Depth' \
+               WHEN avg_presentation < avg_overall THEN 'Presentation' \
+             END as area, \
+             CASE \
+               WHEN avg_communication < avg_overall THEN avg_communication \
+               WHEN avg_problem_solving < avg_overall THEN avg_problem_solving \
+               WHEN avg_technical_depth < avg_overall THEN avg_technical_depth \
+               WHEN avg_presentation < avg_overall THEN avg_presentation \
+             END as score \
+             FROM ( \
+               SELECT \
+                 AVG(overall_score) as avg_overall, \
+                 AVG(COALESCE(json_extract(content_analysis, '$.communication_score'), 0)) as avg_communication, \
+                 AVG(COALESCE(json_extract(content_analysis, '$.problem_solving_score'), 0)) as avg_problem_solving, \
+                 AVG(COALESCE(json_extract(content_analysis, '$.technical_depth_score'), 0)) as avg_technical_depth, \
+                 AVG(COALESCE(json_extract(content_analysis, '$.presentation_score'), 0)) as avg_presentation \
+               FROM session_reports \
+             ) \
+             WHERE area IS NOT NULL \
+             ORDER BY score ASC \
+             LIMIT 4"
+        )?;
+
+        let weak_areas = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,  // area name
+                    row.get(1)?,  // score
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(weak_areas)
+    }
+
+    /// Get recent sessions with limit
+    pub fn get_recent_sessions(&self, limit: i32) -> Result<Vec<InterviewSession>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, resume_id, job_description_id, questions, created_at \
+             FROM interview_sessions \
+             ORDER BY created_at DESC \
+             LIMIT ?1"
+        )?;
+
+        let sessions = stmt
+            .query_map([limit], |row| {
+                let questions_json: String = row.get(3)?;
+                let questions: Vec<String> = serde_json::from_str(&questions_json)
+                    .unwrap_or_default();
+                
+                Ok(InterviewSession {
+                    id: Some(row.get(0)?),
+                    resume_id: row.get(1)?,
+                    job_description_id: row.get(2)?,
+                    questions,
+                    created_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(sessions)
+    }
+
+    // ===== History Management Operations =====
+
+    /// Get comparison data for a specific question across all sessions
+    pub fn get_answers_comparison(&self, question: &str) -> Result<Vec<(String, String, String, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT s.created_at, ia.answer, ia.feedback, \
+             COALESCE(sr.overall_score, 0) \
+             FROM interview_answers ia \
+             JOIN interview_sessions s ON ia.session_id = s.id \
+             LEFT JOIN session_reports sr ON s.id = sr.session_id \
+             WHERE ia.question = ?1 \
+             ORDER BY s.created_at ASC"
+        )?;
+
+        let results = stmt
+            .query_map([question], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,  // created_at
+                    row.get::<_, String>(1)?,  // answer
+                    row.get::<_, String>(2)?,  // feedback
+                    row.get::<_, f32>(3)?.to_string(),  // overall_score as string
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(results)
+    }
+
+    /// Delete a specific interview session and related data
+    pub fn delete_session(&self, session_id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        
+        // Delete in reverse dependency order
+        conn.execute(
+            "DELETE FROM session_reports WHERE session_id = ?1",
+            [session_id],
+        )?;
+        
+        conn.execute(
+            "DELETE FROM interview_answers WHERE session_id = ?1",
+            [session_id],
+        )?;
+        
+        conn.execute(
+            "DELETE FROM interview_sessions WHERE id = ?1",
+            [session_id],
+        )?;
+        
+        Ok(())
+    }
+
+    /// Delete all interview sessions and related data
+    pub fn delete_all_sessions(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        
+        conn.execute("DELETE FROM session_reports", [])?;
+        conn.execute("DELETE FROM interview_answers", [])?;
+        conn.execute("DELETE FROM interview_sessions", [])?;
+        
+        Ok(())
+    }
+
+    // ===== Pagination and Filtering Operations =====
+
+    /// Get paginated interview sessions
+    pub fn get_sessions_paginated(&self, page: i32, page_size: i32) -> Result<(Vec<InterviewSession>, i32)> {
+        let conn = self.conn.lock().unwrap();
+        
+        // Get total count
+        let total: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM interview_sessions",
+            [],
+            |row| row.get(0),
+        )?;
+        
+        // Calculate offset
+        let offset = (page - 1) * page_size;
+        
+        // Get paginated data
+        let mut stmt = conn.prepare(
+            "SELECT id, resume_id, job_description_id, questions, created_at \
+             FROM interview_sessions \
+             ORDER BY created_at DESC \
+             LIMIT ?1 OFFSET ?2"
+        )?;
+        
+        let sessions = stmt
+            .query_map([page_size, offset], |row| {
+                let questions_json: String = row.get(3)?;
+                let questions: Vec<String> = serde_json::from_str(&questions_json)
+                    .unwrap_or_default();
+                
+                Ok(InterviewSession {
+                    id: Some(row.get(0)?),
+                    resume_id: row.get(1)?,
+                    job_description_id: row.get(2)?,
+                    questions,
+                    created_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok((sessions, total))
+    }
+
+    /// Get paginated answers for a session
+    pub fn get_answers_paginated(&self, session_id: i64, page: i32, page_size: i32) -> Result<(Vec<InterviewAnswer>, i32)> {
+        let conn = self.conn.lock().unwrap();
+        
+        // Get total count
+        let total: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM interview_answers WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )?;
+        
+        // Calculate offset
+        let offset = (page - 1) * page_size;
+        
+        // Get paginated data
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, question_index, question, answer, feedback, created_at \
+             FROM interview_answers \
+             WHERE session_id = ?1 \
+             ORDER BY question_index ASC \
+             LIMIT ?2 OFFSET ?3"
+        )?;
+        
+        let answers = stmt
+            .query_map(params![session_id, page_size, offset], |row| {
+                Ok(InterviewAnswer {
+                    id: Some(row.get(0)?),
+                    session_id: row.get(1)?,
+                    question_index: row.get(2)?,
+                    question: row.get(3)?,
+                    answer: row.get(4)?,
+                    feedback: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok((answers, total))
+    }
+
+    /// Get sessions filtered by date range
+    pub fn get_sessions_by_date_range(&self, start_date: &str, end_date: &str) -> Result<Vec<InterviewSession>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, resume_id, job_description_id, questions, created_at \
+             FROM interview_sessions \
+             WHERE created_at >= ?1 AND created_at <= ?2 \
+             ORDER BY created_at DESC"
+        )?;
+        
+        let sessions = stmt
+            .query_map(params![start_date, end_date], |row| {
+                let questions_json: String = row.get(3)?;
+                let questions: Vec<String> = serde_json::from_str(&questions_json)
+                    .unwrap_or_default();
+                
+                Ok(InterviewSession {
+                    id: Some(row.get(0)?),
+                    resume_id: row.get(1)?,
+                    job_description_id: row.get(2)?,
+                    questions,
+                    created_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(sessions)
+    }
+
+    /// Get session reports filtered by date range
+    pub fn get_reports_by_date_range(&self, start_date: &str, end_date: &str) -> Result<Vec<SessionReport>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT r.id, r.session_id, r.overall_score, r.content_analysis, \
+             r.expression_analysis, r.summary, r.improvements, r.key_takeaways, \
+             r.reference_answers, r.generated_at, r.api_response_time \
+             FROM session_reports r \
+             JOIN interview_sessions s ON r.session_id = s.id \
+             WHERE s.created_at >= ?1 AND s.created_at <= ?2 \
+             ORDER BY s.created_at DESC"
+        )?;
+        
+        let reports = stmt
+            .query_map(params![start_date, end_date], |row| {
+                Ok(SessionReport {
+                    id: Some(row.get(0)?),
+                    session_id: row.get(1)?,
+                    overall_score: row.get(2)?,
+                    content_analysis: row.get(3)?,
+                    expression_analysis: row.get(4)?,
+                    summary: row.get(5)?,
+                    improvements: row.get(6)?,
+                    key_takeaways: row.get(7)?,
+                    reference_answers: row.get(8)?,
+                    generated_at: row.get(9)?,
+                    api_response_time: row.get(10)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(reports)
+    }
 }

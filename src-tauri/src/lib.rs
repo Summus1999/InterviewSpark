@@ -12,7 +12,7 @@ mod analysis;
 
 use api::SiliconFlowClient;
 use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats};
-use analysis::{ContentAnalyzer, ScoringEngine};
+use analysis::{ContentAnalyzer, ScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, BackupData, CacheManager};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
@@ -23,9 +23,11 @@ use tauri::State;
 /// - Graceful handling when API key is not configured
 ///
 /// The repository is wrapped in Arc for shared ownership across threads
+/// The cache manager provides high-performance caching for frequently accessed data
 struct AppState {
     api_client: Mutex<Option<SiliconFlowClient>>,
     db: Arc<Repository>,
+    cache: Arc<CacheManager>,
 }
 
 /// Greet command for testing IPC communication between frontend and backend
@@ -370,6 +372,243 @@ fn db_get_performance_history(state: State<'_, AppState>) -> Result<Vec<Performa
         .map_err(|e| e.to_string())
 }
 
+// ===== Report Generation Commands =====
+
+/// Generate comprehensive interview report
+#[tauri::command]
+async fn generate_comprehensive_report(
+    session_id: i64,
+    state: State<'_, AppState>,
+) -> Result<SessionReport, String> {
+    let client = {
+        let client_guard = state.api_client.lock().unwrap();
+        client_guard.clone().ok_or("API client not initialized")?
+    };
+    
+    ReportGenerator::generate_report(session_id, &client, state.db.as_ref())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get session report
+#[tauri::command]
+fn db_get_report(session_id: i64, state: State<'_, AppState>) -> Result<Option<SessionReport>, String> {
+    state.db.get_session_report(session_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Export report to text format
+#[tauri::command]
+fn export_report_text(
+    session_id: i64,
+    file_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let report = state
+        .db
+        .get_session_report(session_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Report not found")?;
+
+    let path = std::path::PathBuf::from(&file_path);
+    ReportExporter::export_to_text(&report, &path)
+        .map_err(|e| e.to_string())
+}
+
+/// Export report to HTML format
+#[tauri::command]
+fn export_report_html(
+    session_id: i64,
+    file_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let report = state
+        .db
+        .get_session_report(session_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Report not found")?;
+
+    let path = std::path::PathBuf::from(&file_path);
+    ReportExporter::export_to_html(&report, &path)
+        .map_err(|e| e.to_string())
+}
+
+// ===== Analytics Commands =====
+
+/// Get trend analytics for growth tracking (with caching)
+#[tauri::command]
+async fn get_trend_analytics(
+    time_range_days: Option<i64>,
+    state: State<'_, AppState>,
+) -> Result<TrendAnalytics, String> {
+    // Only use cache if no time range specified (default view)
+    if time_range_days.is_none() {
+        if let Some(cached_data) = state.cache.get_analytics() {
+            return Ok(cached_data);
+        }
+    }
+    
+    let time_range = time_range_days.map(|days| {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        now - (days * 86400)
+    });
+
+    let engine = AnalyticsEngine::new(state.db.clone());
+    let data = engine.get_trend_analytics(time_range)
+        .map_err(|e| e.to_string())?;
+    
+    // Cache only default view
+    if time_range_days.is_none() {
+        state.cache.set_analytics(data.clone());
+    }
+    
+    Ok(data)
+}
+
+// ===== Dashboard Commands =====
+
+/// Get complete dashboard data (with caching)
+#[tauri::command]
+fn get_dashboard_data(state: State<'_, AppState>) -> Result<DashboardData, String> {
+    // Try to get from cache first
+    if let Some(cached_data) = state.cache.get_dashboard() {
+        return Ok(cached_data);
+    }
+    
+    // If cache miss, fetch from database
+    let service = DashboardService::new(state.db.clone());
+    let data = service.get_dashboard_data()
+        .map_err(|e| e.to_string())?;
+    
+    // Store in cache
+    state.cache.set_dashboard(data.clone());
+    
+    Ok(data)
+}
+
+// ===== History Management Commands =====
+
+/// Get comparison data for same question across different sessions
+#[tauri::command]
+fn get_answers_comparison(
+    question: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<(String, String, String, String)>, String> {
+    state.db.get_answers_comparison(&question)
+        .map_err(|e| e.to_string())
+}
+
+/// Delete a specific interview session
+#[tauri::command]
+fn delete_session(session_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_session(session_id)
+        .map_err(|e| e.to_string())?;
+    
+    // Invalidate caches
+    state.cache.invalidate_all();
+    
+    Ok(())
+}
+
+/// Delete all interview sessions
+#[tauri::command]
+fn delete_all_sessions(state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_all_sessions()
+        .map_err(|e| e.to_string())?;
+    
+    // Invalidate caches
+    state.cache.invalidate_all();
+    
+    Ok(())
+}
+
+/// Backup all data to JSON file
+#[tauri::command]
+fn backup_data(file_path: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Export all data
+    let backup_data = BackupManager::export_all_data(&state.db)
+        .map_err(|e| e.to_string())?;
+    
+    // Save to file
+    BackupManager::save_backup_to_file(&backup_data, &file_path)
+        .map_err(|e| format!("Failed to save backup: {}", e))?;
+    
+    Ok(())
+}
+
+/// Restore data from JSON backup file
+#[tauri::command]
+fn restore_data(file_path: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Validate backup file
+    BackupManager::validate_backup(&file_path)
+        .map_err(|e| format!("Failed to validate backup: {}", e))?
+        .then_some(())
+        .ok_or_else(|| "Invalid backup file format".to_string())?;
+    
+    // Load backup data
+    let backup_data = BackupManager::load_backup_from_file(&file_path)
+        .map_err(|e| format!("Failed to load backup: {}", e))?;
+    
+    // Import data
+    BackupManager::import_data(&state.db, &backup_data)
+        .map_err(|e| format!("Failed to import data: {}", e))?;
+    
+    // Invalidate caches after data restore
+    state.cache.invalidate_all();
+    
+    Ok(())
+}
+
+// ===== Pagination and Filtering Commands =====
+
+/// Get paginated interview sessions
+#[tauri::command]
+fn get_sessions_paginated(
+    page: i32,
+    page_size: i32,
+    state: State<'_, AppState>,
+) -> Result<(Vec<InterviewSession>, i32), String> {
+    state.db.get_sessions_paginated(page, page_size)
+        .map_err(|e| e.to_string())
+}
+
+/// Get paginated answers for a session
+#[tauri::command]
+fn get_answers_paginated(
+    session_id: i64,
+    page: i32,
+    page_size: i32,
+    state: State<'_, AppState>,
+) -> Result<(Vec<InterviewAnswer>, i32), String> {
+    state.db.get_answers_paginated(session_id, page, page_size)
+        .map_err(|e| e.to_string())
+}
+
+/// Get sessions filtered by date range
+#[tauri::command]
+fn get_sessions_by_date_range(
+    start_date: String,
+    end_date: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<InterviewSession>, String> {
+    state.db.get_sessions_by_date_range(&start_date, &end_date)
+        .map_err(|e| e.to_string())
+}
+
+/// Get reports filtered by date range
+#[tauri::command]
+fn get_reports_by_date_range(
+    start_date: String,
+    end_date: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<SessionReport>, String> {
+    state.db.get_reports_by_date_range(&start_date, &end_date)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -395,6 +634,7 @@ pub fn run() {
     .expect("Failed to initialize database");
   
   let repository = Arc::new(Repository::new(conn));
+  let cache_manager = Arc::new(CacheManager::new());
   
   tauri::Builder::default()
     .setup(|app| {
@@ -410,6 +650,7 @@ pub fn run() {
     .manage(AppState {
       api_client: Mutex::new(api_client),
       db: repository,
+      cache: cache_manager,
     })
     .invoke_handler(tauri::generate_handler![
       greet,
@@ -435,7 +676,22 @@ pub fn run() {
       db_save_session_report,
       db_get_session_report,
       db_save_performance_stats,
-      db_get_performance_history
+      db_get_performance_history,
+      generate_comprehensive_report,
+      db_get_report,
+      export_report_text,
+      export_report_html,
+      get_trend_analytics,
+      get_dashboard_data,
+      get_answers_comparison,
+      delete_session,
+      delete_all_sessions,
+      backup_data,
+      restore_data,
+      get_sessions_paginated,
+      get_answers_paginated,
+      get_sessions_by_date_range,
+      get_reports_by_date_range
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

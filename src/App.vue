@@ -46,6 +46,9 @@
             <button @click="currentMode = 'bank'" :class="{ active: currentMode === 'bank' }" class="mode-btn">
               题库管理
             </button>
+            <button @click="currentMode = 'dashboard'" :class="{ active: currentMode === 'dashboard' }" class="mode-btn">
+              仪表板
+            </button>
             <button @click="showTest = true" class="toggle-btn">
               测试模式
             </button>
@@ -175,6 +178,11 @@
         <div v-if="currentMode === 'bank'">
           <QuestionBank />
         </div>
+
+        <!-- Dashboard Mode -->
+        <div v-if="currentMode === 'dashboard'">
+          <Dashboard />
+        </div>
       </section>
     </main>
   </div>
@@ -188,6 +196,7 @@ import JobDescription from './components/JobDescription.vue'
 import QuestionList from './components/QuestionList.vue'
 import InterviewHistory from './components/InterviewHistory.vue'
 import QuestionBank from './components/QuestionBank.vue'
+import Dashboard from './components/Dashboard.vue'
 import VoiceControls from './components/VoiceControls.vue'
 import { createSession, saveAnswer } from './services/database'
 import { tts } from './services/voice'
@@ -198,7 +207,7 @@ const greeting = ref('')
 const showTest = ref(false)
 
 // Mode management
-const currentMode = ref<'interview' | 'history' | 'bank'>('interview')
+const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard'>('interview')
 
 // Phase 2 interview variables
 const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback'>('input')
@@ -231,6 +240,7 @@ const modeTitle = computed(() => {
     case 'interview': return '模拟面试'
     case 'history': return '历史记录'
     case 'bank': return '题库管理'
+    case 'dashboard': return '仪表板'
     default: return '模拟面试'
   }
 })

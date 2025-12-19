@@ -219,4 +219,40 @@ impl SiliconFlowClient {
 
         self.chat_completion(messages, Some(0.7), Some(1500)).await
     }
+
+    /// Generate comprehensive interview report
+    pub async fn generate_session_report(
+        &self,
+        questions: &[String],
+        answers: &[String],
+        job_description: &str,
+    ) -> Result<String> {
+        let system_prompt = "You are an expert interview evaluator. Generate a comprehensive interview report in JSON format with the following structure: {\"summary\": \"...\", \"overall_score\": 8.5, \"improvements\": [...], \"key_takeaways\": [...]}";
+        
+        let qa_pairs = questions
+            .iter()
+            .zip(answers.iter())
+            .enumerate()
+            .map(|(idx, (q, a))| format!("Q{}: {}\nA{}: {}", idx + 1, q, idx + 1, a))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        
+        let user_prompt = format!(
+            "Job Description:\n{}\n\nInterview Q&A:\n{}\n\nPlease generate a comprehensive report with:\n1. Overall performance summary (150-200 words)\n2. Overall score (1-10 scale)\n3. 3-5 specific improvement suggestions\n4. 2-3 key takeaways\n\nRespond ONLY with valid JSON, no other text.",
+            job_description, qa_pairs
+        );
+
+        let messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: system_prompt.to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: user_prompt,
+            },
+        ];
+
+        self.chat_completion(messages, Some(0.7), Some(2500)).await
+    }
 }

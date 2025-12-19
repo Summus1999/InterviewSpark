@@ -48,6 +48,82 @@ export interface QuestionBankItem {
   updated_at: string
 }
 
+export interface SessionReport {
+  id?: number
+  session_id: number
+  overall_score: number
+  summary: string
+  improvements: string
+  key_takeaways: string
+  reference_answers?: string
+  generated_at: string
+  api_response_time?: number
+  content_analysis?: string
+  expression_analysis?: string
+}
+
+export interface TrendDataPoint {
+  timestamp: number
+  overallScore: number
+  communicationScore: number
+  problemSolvingScore: number
+  technicalDepthScore: number
+  presentationScore: number
+}
+
+export interface PerformanceStatistics {
+  totalSessions: number
+  averageOverall: number
+  highestOverall: number
+  improvementRate: number
+  recentTrend: 'improving' | 'stable' | 'declining'
+}
+
+export interface TrendAnalytics {
+  dataPoints: TrendDataPoint[]
+  statistics: PerformanceStatistics
+}
+
+export interface DashboardStats {
+  totalSessions: number
+  averageScore: number
+  highestScore: number
+  recentImprovement: number
+}
+
+export interface TopQuestion {
+  question: string
+  count: number
+}
+
+export interface WeakArea {
+  area: string
+  averageScore: number
+  suggestion: string
+}
+
+export interface RecentSessionInfo {
+  id: number
+  createdAt: string
+  questionCount: number
+  overallScore?: number
+}
+
+export interface DashboardData {
+  stats: DashboardStats
+  topQuestions: TopQuestion[]
+  weakAreas: WeakArea[]
+  recentSessions: RecentSessionInfo[]
+}
+
+// History management types
+export interface AnswerComparisonItem {
+  timestamp: string
+  answer: string
+  feedback: string
+  score: string
+}
+
 // Resume operations
 export async function saveResume(title: string, content: string): Promise<number> {
   return await invoke('db_save_resume', { title, content })
@@ -151,4 +227,114 @@ export async function updateBankItem(
 
 export async function deleteFromBank(id: number): Promise<void> {
   return await invoke('db_delete_from_bank', { id })
+}
+
+// Report operations
+export async function generateReport(sessionId: number): Promise<SessionReport> {
+  return await invoke('generate_comprehensive_report', { sessionId })
+}
+
+export async function getReport(sessionId: number): Promise<SessionReport | null> {
+  return await invoke('db_get_report', { sessionId })
+}
+
+export async function exportReportText(
+  sessionId: number,
+  filePath: string
+): Promise<void> {
+  return await invoke('export_report_text', { sessionId, filePath })
+}
+
+export async function exportReportHtml(
+  sessionId: number,
+  filePath: string
+): Promise<void> {
+  return await invoke('export_report_html', { sessionId, filePath })
+}
+
+// Analytics operations
+export async function getTrendAnalytics(
+  timeRangeDays?: number
+): Promise<TrendAnalytics> {
+  return await invoke('get_trend_analytics', { timeRangeDays: timeRangeDays || null })
+}
+
+// Dashboard operations
+export async function getDashboardData(): Promise<DashboardData> {
+  return await invoke('get_dashboard_data')
+}
+
+// History management operations
+export async function getAnswersComparison(
+  question: string
+): Promise<AnswerComparisonItem[]> {
+  const results = await invoke<[string, string, string, string][]>(
+    'get_answers_comparison',
+    { question }
+  )
+  return results.map(([timestamp, answer, feedback, score]) => ({
+    timestamp,
+    answer,
+    feedback,
+    score
+  }))
+}
+
+export async function deleteSession(sessionId: number): Promise<void> {
+  return await invoke('delete_session', { sessionId })
+}
+
+export async function deleteAllSessions(): Promise<void> {
+  return await invoke('delete_all_sessions')
+}
+
+export async function backupData(filePath: string): Promise<void> {
+  return await invoke('backup_data', { filePath })
+}
+
+export async function restoreData(filePath: string): Promise<void> {
+  return await invoke('restore_data', { filePath })
+}
+
+// Pagination and filtering operations
+export interface PaginationResult<T> {
+  data: T[]
+  total: number
+}
+
+export async function getSessionsPaginated(
+  page: number,
+  pageSize: number
+): Promise<PaginationResult<InterviewSession>> {
+  const [data, total] = await invoke<[InterviewSession[], number]>(
+    'get_sessions_paginated',
+    { page, pageSize }
+  )
+  return { data, total }
+}
+
+export async function getAnswersPaginated(
+  sessionId: number,
+  page: number,
+  pageSize: number
+): Promise<PaginationResult<InterviewAnswer>> {
+  const [data, total] = await invoke<[InterviewAnswer[], number]>(
+    'get_answers_paginated',
+    { sessionId, page, pageSize }
+  )
+  return { data, total }
+}
+
+export async function getSessionsByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<InterviewSession[]> {
+  return await invoke('get_sessions_by_date_range', { startDate, endDate })
+}
+
+export async function getReportsByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<SessionReport[]> {
+  return await invoke('get_reports_by_date_range', { startDate, endDate })
 }

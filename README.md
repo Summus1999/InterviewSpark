@@ -128,6 +128,10 @@ src/                      # Vue 3 前端代码
     InterviewHistory.vue  # 历史记录查看组件
     QuestionBank.vue      # 题库管理组件
     VoiceControls.vue     # 语音控制组件
+    Dashboard.vue         # 数据仪表板
+    GrowthView.vue        # 成长曲线页面
+    ReportView.vue        # 复盘报告展示
+    AnswerComparison.vue  # 答案对比组件
   services/               # 服务层
     database.ts           # 数据库服务接口
     voice.ts              # 语音服务（TTS/ASR）
@@ -143,6 +147,16 @@ src-tauri/                # Rust 后端代码
       models.rs           # 数据模型定义
       schema.rs           # 表结构和初始化
       repository.rs       # 数据访问层
+    analysis/             # 分析模块
+      mod.rs              # 模块入口
+      content.rs          # 内容分析
+      scoring.rs          # 评分算法
+      report.rs           # 报告生成
+      export.rs           # 报告导出
+      analytics.rs        # 趋势分析
+      dashboard.rs        # 仪表板服务
+      backup.rs           # 数据备份
+      cache.rs            # 缓存管理
   Cargo.toml              # Rust 依赖配置
   tauri.conf.json         # Tauri 应用配置
 data/                     # 数据存储目录
@@ -155,20 +169,19 @@ ProductionDoc.md          # 产品文档
 
 ## 技术栈
 
-- **应用框架**: Tauri 2.9.5
+- **应用框架**: Tauri 2.x
 - **后端语言**: Rust (edition 2021)
 - **前端框架**: Vue 3.5 + TypeScript
-- **构建工具**: Vite 7.2
+- **构建工具**: Vite 7.x
 - **代码规范**: ESLint + Prettier
 - **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)
 - **数据库**: SQLite + rusqlite
 - **语音能力**: Web Speech API (TTS + ASR)
+- **图表库**: ECharts + vue-echarts
 - **HTTP 客户端**: reqwest
 - **异步运行时**: tokio
 
 ## 功能特性
-
-### 已实现
 
 - **基础框架** (Phase 1): Tauri + Rust + Vue 3 跨平台架构
 - **模拟面试** (Phase 2): 基于简历和 JD 生成面试问题
@@ -178,7 +191,8 @@ ProductionDoc.md          # 产品文档
 - **历史记录** (Phase 3): 查看过往面试会话和答题详情
 - **题库管理** (Phase 3): 收藏问题、添加最佳答案、分类管理
 - **语音交互** (Phase 4): AI 语音发问、语音回答、语音反馈
-
-### 待开发
-
 - **复盘分析** (Phase 5): 多维度评估和可视化报告
+- **成长曲线** (Phase 5): 评分趋势追踪和统计分析
+- **数据仪表板** (Phase 5): 综合数据概览和热门问题统计
+- **答案对比** (Phase 5): 同一问题不同时期答案对比
+- **数据备份** (Phase 5): 支持 JSON 全量导出和导入
