@@ -60,8 +60,9 @@ npm run format
    npm run tauri:dev
    ```
 
-2. **测试 IPC 通信**
+2. **测试 IPC 通信**（仅开发环境）
    - 应用窗口会自动打开（标题：InterviewSpark）
+   - 点击 "测试模式" 按钮进入测试界面（生产环境不显示此按钮）
    - 在输入框中输入你的名字
    - 点击 "Test IPC Connection" 按钮
    - 应该看到返回消息：`Hello, [你的名字]! Welcome to InterviewSpark.`
@@ -226,3 +227,4 @@ ProductionDoc.md          # 产品文档
   - API 重试机制: 指数退避策略，提升请求稳定性
   - 数据预加载: Pinia 缓存常用数据，减少加载延迟
   - 草稿自动保存: IndexedDB 本地存储，防止数据丢失
+  - 环境区分: 测试模式仅在开发环境显示，生产环境界面更简洁

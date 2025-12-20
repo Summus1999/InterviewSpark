@@ -52,7 +52,7 @@
             <button @click="currentMode = 'dashboard'" :class="{ active: currentMode === 'dashboard' }" class="mode-btn">
               仪表板
             </button>
-            <button @click="showTest = true" class="toggle-btn">
+            <button v-if="isDev" @click="showTest = true" class="toggle-btn">
               测试模式
             </button>
           </div>
@@ -276,6 +276,9 @@ import { tts } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
 import { DEFAULT_FOLLOWUP_SETTINGS } from './types/follow-up'
+
+// Development mode detection
+const isDev = import.meta.env.DEV
 
 // Phase 1 test variables
 const userName = ref('')
