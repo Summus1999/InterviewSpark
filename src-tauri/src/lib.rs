@@ -543,10 +543,14 @@ fn db_get_performance_history(state: State<'_, AppState>) -> Result<Vec<Performa
 
 // ===== Report Generation Commands =====
 
+// Flagship model for AI analysis - highest quality reasoning
+const FLAGSHIP_MODEL: &str = "Qwen/Qwen3-VL-235B-A22B-Thinking";
+
 /// Generate comprehensive interview report
 #[tauri::command]
 async fn generate_comprehensive_report(
     session_id: i64,
+    _use_premium_model: Option<bool>,  // Deprecated: always uses flagship model
     state: State<'_, AppState>,
 ) -> Result<SessionReport, String> {
     let client = {
@@ -554,7 +558,8 @@ async fn generate_comprehensive_report(
         client_guard.clone().ok_or("API client not initialized")?
     };
     
-    ReportGenerator::generate_report(session_id, &client, state.db.as_ref())
+    // Always use flagship model for best quality analysis
+    ReportGenerator::generate_report_with_model(session_id, &client, state.db.as_ref(), Some(FLAGSHIP_MODEL))
         .await
         .map_err(|e| e.to_string())
 }

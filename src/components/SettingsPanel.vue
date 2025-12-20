@@ -29,9 +29,10 @@
           <label class="settings-label">模型</label>
           <select v-model="localSettings.model" class="settings-select">
             <option v-for="model in availableModels" :key="model.value" :value="model.value">
-              {{ model.label }}
+              {{ model.label }} - {{ model.description }}
             </option>
           </select>
+          <p class="model-description">{{ currentModelDescription }}</p>
         </div>
 
         <div class="settings-item">
@@ -92,7 +93,7 @@ const showApiKey = ref(false)
 const localTheme = ref<Theme>('light')
 const localPersona = ref<InterviewerPersona>('balanced')
 const localSettings = ref<ApiSettings>({
-  model: 'Qwen/Qwen2.5-7B-Instruct',
+  model: 'Qwen/Qwen3-8B',
   apiKey: ''
 })
 
@@ -101,6 +102,11 @@ const themeManager = ThemeManager.getInstance()
 
 const personaDescription = computed(() => {
   return InterviewerPersonaManager.getPersonaDescription(localPersona.value)
+})
+
+const currentModelDescription = computed(() => {
+  const model = availableModels.find(m => m.value === localSettings.value.model)
+  return model ? model.description : ''
 })
 
 onMounted(() => {
@@ -250,7 +256,8 @@ function handleResetOnboarding() {
   border-color: var(--accent-primary);
 }
 
-.persona-description {
+.persona-description,
+.model-description {
   margin-top: 0.4rem;
   font-size: 0.8rem;
   color: var(--text-light);

@@ -12,7 +12,11 @@
     <!-- Loading State -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>正在生成报告...</p>
+      <p class="loading-text">正在生成报告...</p>
+      <p class="loading-subtext">已等待 {{ elapsedSeconds }} 秒 / 预计 {{ estimatedSeconds }} 秒</p>
+      <div class="progress-bar">
+        <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+      </div>
     </div>
 
     <!-- Report Display -->
@@ -86,7 +90,10 @@
     <!-- Error State -->
     <div v-else class="error-state">
       <p>{{ errorMessage }}</p>
-      <button @click="retryGenerate" class="btn btn-retry">重新生成</button>
+      <div class="error-actions">
+        <button @click="retryGenerate" class="btn btn-retry">重新生成</button>
+        <button @click="goHome" class="btn btn-home">返回主页</button>
+      </div>
     </div>
   </div>
 </template>
@@ -108,11 +115,22 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {})
 
+// Emits
+const emit = defineEmits<{
+  close: []
+}>()
+
 // State
 const report = ref<SessionReport | null>(null)
 const loading = ref(false)
 const exporting = ref(false)
 const errorMessage = ref('')
+const retryCount = ref(0)
+const timeoutId = ref<number | null>(null)
+const maxRetries = 2
+const elapsedSeconds = ref(0)
+const estimatedSeconds = 45
+const timerInterval = ref<number | null>(null)
 
 // Computed properties
 const improvements = computed(() => {
@@ -158,31 +176,96 @@ const scoreGrade = computed(() => {
   return 'F'
 })
 
+const remainingSeconds = computed(() => {
+  const remaining = estimatedSeconds - elapsedSeconds.value
+  return Math.max(0, remaining)
+})
+
+const progressPercent = computed(() => {
+  return Math.min(100, (elapsedSeconds.value / estimatedSeconds) * 100)
+})
+
 // Methods
 const loadReport = async () => {
-  loading.value = true
   errorMessage.value = ''
   
   try {
-    // Try to get existing report first
+    // First, quickly check if report already exists in database
     const existingReport = await invoke<SessionReport | null>('db_get_report', {
       sessionId: props.sessionId
     })
     
     if (existingReport) {
+      // Report exists, show directly without loading state
       report.value = existingReport
-    } else {
-      // Generate new report
-      const newReport = await invoke<SessionReport>('generate_comprehensive_report', {
-        sessionId: props.sessionId
-      })
-      report.value = newReport
+      return
     }
+    
+    // No existing report, need to generate - show loading state
+    loading.value = true
+    elapsedSeconds.value = 0
+    
+    // Start timer to show elapsed time
+    if (timerInterval.value) {
+      clearInterval(timerInterval.value)
+    }
+    timerInterval.value = window.setInterval(() => {
+      elapsedSeconds.value++
+    }, 1000)
+    
+    // Clear previous timeout
+    if (timeoutId.value) {
+      clearTimeout(timeoutId.value)
+      timeoutId.value = null
+    }
+    
+    // Set frontend timeout (60 seconds)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId.value = window.setTimeout(() => {
+        reject(new Error('网络超时，请重试'))
+      }, 60000)
+    })
+    
+    // Race between API call and timeout
+    const result = await Promise.race([
+      invoke<SessionReport>('generate_comprehensive_report', {
+        sessionId: props.sessionId,
+        usePremiumModel: false
+      }),
+      timeoutPromise
+    ])
+    
+    report.value = result
+    retryCount.value = 0
   } catch (error) {
-    errorMessage.value = `生成报告失败: ${String(error)}`
+    const errorStr = String(error)
     console.error('Failed to load report:', error)
+    
+    // Translate error messages to Chinese for better UX
+    if (errorStr.includes('超时') || errorStr.includes('timeout')) {
+      errorMessage.value = `网络超时，请检查网络连接后重试 (已重试 ${retryCount.value}/${maxRetries} 次)`
+    } else if (errorStr.includes('API') || errorStr.includes('Failed to generate')) {
+      errorMessage.value = '报告生成失败，AI 服务暂时不可用。请稍后重试。'
+    } else if (errorStr.includes('No answers found')) {
+      errorMessage.value = '该面试会话暂无答题记录，无法生成分析报告。'
+    } else if (errorStr.includes('Session not found')) {
+      errorMessage.value = '未找到该面试会话记录。'
+    } else if (errorStr.includes('API client not initialized')) {
+      errorMessage.value = 'AI 服务未初始化，请检查 API Key 配置。'
+    } else {
+      errorMessage.value = '报告生成失败，请稍后重试。'
+    }
   } finally {
     loading.value = false
+    // Clear timeout and timer
+    if (timeoutId.value) {
+      clearTimeout(timeoutId.value)
+      timeoutId.value = null
+    }
+    if (timerInterval.value) {
+      clearInterval(timerInterval.value)
+      timerInterval.value = null
+    }
   }
 }
 
@@ -235,7 +318,16 @@ const printReport = () => {
 }
 
 const retryGenerate = () => {
-  loadReport()
+  if (retryCount.value < maxRetries) {
+    retryCount.value++
+    loadReport()
+  } else {
+    errorMessage.value = `已达到最大重试次数 (${maxRetries})。请稍后再试或联系支持。`
+  }
+}
+
+const goHome = () => {
+  emit('close')
 }
 
 const formatDate = (dateStr: string) => {
@@ -268,6 +360,34 @@ onMounted(() => {
   padding: 4rem 2rem;
 }
 
+.loading-text {
+  font-size: 16px;
+  margin: 1rem 0 0.5rem 0;
+  color: var(--text-primary, #333);
+}
+
+.loading-subtext {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  margin: 0.5rem 0 1.5rem 0;
+}
+
+.progress-bar {
+  width: 100%;
+  max-width: 300px;
+  height: 8px;
+  background: var(--border-light, #e0e0e0);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+}
+
 .spinner {
   width: 40px;
   height: 40px;
@@ -292,7 +412,14 @@ onMounted(() => {
 }
 
 .error-state p {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* Report Header */
@@ -487,6 +614,16 @@ onMounted(() => {
 
 .btn-retry:hover:not(:disabled) {
   background: #e68900;
+  transform: translateY(-2px);
+}
+
+.btn-home {
+  background: #607d8b;
+  color: white;
+}
+
+.btn-home:hover:not(:disabled) {
+  background: #546e7a;
   transform: translateY(-2px);
 }
 

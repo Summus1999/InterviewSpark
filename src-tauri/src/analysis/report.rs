@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Instant;
+use tokio::time::{timeout, Duration};
 
 /// Comprehensive report structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +26,16 @@ impl ReportGenerator {
         session_id: i64,
         api_client: &SiliconFlowClient,
         db: &Repository,
+    ) -> Result<SessionReport> {
+        Self::generate_report_with_model(session_id, api_client, db, None).await
+    }
+
+    /// Generate comprehensive report with optional model override
+    pub async fn generate_report_with_model(
+        session_id: i64,
+        api_client: &SiliconFlowClient,
+        db: &Repository,
+        model: Option<&str>,
     ) -> Result<SessionReport> {
         let start_time = Instant::now();
 
@@ -61,11 +72,16 @@ impl ReportGenerator {
             String::new()
         };
 
-        // Call API to generate report
-        let api_response = api_client
-            .generate_session_report(&questions, &answer_texts, &job_description)
-            .await
-            .context("Failed to generate report from API")?;
+        // Call API to generate report with timeout protection
+        let api_response = match timeout(
+            Duration::from_secs(90),
+            api_client.generate_session_report_with_model(&questions, &answer_texts, &job_description, model)
+        )
+        .await
+        {
+            Ok(result) => result.context("Failed to generate report from API")?,
+            Err(_) => anyhow::bail!("Report generation timeout after 90 seconds"),
+        };
 
         // Parse response
         let report = Self::parse_report_response(&api_response)?;

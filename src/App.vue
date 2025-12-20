@@ -278,7 +278,11 @@
         <button class="report-close-btn" @click="closeCompletionAnimation" aria-label="Close report">
           ✕
         </button>
-        <ReportView v-if="currentSessionId" :session-id="currentSessionId" />
+        <ReportView 
+          v-if="currentSessionId" 
+          :session-id="currentSessionId" 
+          @close="closeCompletionAnimation"
+        />
       </div>
     </div>
     
@@ -598,17 +602,9 @@ const generateFinalReport = async () => {
   error.value = ''
   
   try {
-    // Show completion animation first
-    showCompletionAnimation.value = true
-    
-    // Wait for animation
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Hide animation and show report loading
-    showCompletionAnimation.value = false
+    // Show report modal immediately with loading state
     showFinalReport.value = true
-    
-    // Generate report will be handled by ReportView component
+    // ReportView component will handle loading and generating report
   } catch (err) {
     error.value = `生成报告失败: ${err}`
     showFinalReport.value = false

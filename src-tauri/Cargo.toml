@@ -31,3 +31,6 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
 eventsource-stream = "0.2"
+
+[dev-dependencies]
+tokio-test = "0.4"

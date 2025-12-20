@@ -110,7 +110,7 @@ impl SiliconFlowClient {
             .unwrap_or_else(|_| "Qwen/Qwen3-8B".to_string());
 
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(60))
+            .timeout(std::time::Duration::from_secs(120))
             .build()?;
 
         Ok(Self {
@@ -127,7 +127,7 @@ impl SiliconFlowClient {
         let base_url = "https://api.siliconflow.cn/v1".to_string();
         
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(60))
+            .timeout(std::time::Duration::from_secs(120))
             .build()?;
 
         Ok(Self {
@@ -152,10 +152,21 @@ impl SiliconFlowClient {
         temperature: Option<f32>,
         max_tokens: Option<u32>,
     ) -> Result<String> {
+        self.chat_completion_with_model(messages, &self.model, temperature, max_tokens).await
+    }
+
+    /// Call chat completion API with model override
+    pub async fn chat_completion_with_model(
+        &self,
+        messages: Vec<ChatMessage>,
+        model: &str,
+        temperature: Option<f32>,
+        max_tokens: Option<u32>,
+    ) -> Result<String> {
         let url = format!("{}/chat/completions", self.base_url);
         
         let request = ChatCompletionRequest {
-            model: self.model.clone(),
+            model: model.to_string(),
             messages: messages.clone(),
             temperature: temperature.unwrap_or(0.7),
             max_tokens,
@@ -353,18 +364,30 @@ impl SiliconFlowClient {
         answers: &[String],
         job_description: &str,
     ) -> Result<String> {
-        let system_prompt = "You are an expert interview evaluator. Generate a comprehensive interview report in JSON format with the following structure: {\"summary\": \"...\", \"overall_score\": 8.5, \"improvements\": [...], \"key_takeaways\": [...]}";
+        self.generate_session_report_with_model(questions, answers, job_description, None).await
+    }
+
+    /// Generate comprehensive interview report with optional model override
+    pub async fn generate_session_report_with_model(
+        &self,
+        questions: &[String],
+        answers: &[String],
+        job_description: &str,
+        model: Option<&str>,
+    ) -> Result<String> {
+        let model_to_use = model.unwrap_or(&self.model);
+        let system_prompt = "你是一位资深面试评估专家。请用中文生成一份全面的面试复盘报告，输出JSON格式：{\"summary\": \"总结...\", \"overall_score\": 8.5, \"improvements\": [...], \"key_takeaways\": [...]}";
         
         let qa_pairs = questions
             .iter()
             .zip(answers.iter())
             .enumerate()
-            .map(|(idx, (q, a))| format!("Q{}: {}\nA{}: {}", idx + 1, q, idx + 1, a))
+            .map(|(idx, (q, a))| format!("问题{}: {}\n回答{}: {}", idx + 1, q, idx + 1, a))
             .collect::<Vec<_>>()
             .join("\n\n");
         
         let user_prompt = format!(
-            "Job Description:\n{}\n\nInterview Q&A:\n{}\n\nPlease generate a comprehensive report with:\n1. Overall performance summary (150-200 words)\n2. Overall score (1-10 scale)\n3. 3-5 specific improvement suggestions\n4. 2-3 key takeaways\n\nRespond ONLY with valid JSON, no other text.",
+            "岗位描述：\n{}\n\n面试问答：\n{}\n\n请用中文生成一份全面的面试复盘报告，包含：\n1. 整体表现总结（150-200字）\n2. 综合评分（1-10分）\n3. 3-5条具体改进建议\n4. 2-3条核心要点\n\n请只返回有效的JSON格式，不要其他任何文字。",
             job_description, qa_pairs
         );
 
@@ -379,7 +402,7 @@ impl SiliconFlowClient {
             },
         ];
 
-        self.chat_completion(messages, Some(0.7), Some(2500)).await
+        self.chat_completion_with_model(messages, model_to_use, Some(0.7), Some(2500)).await
     }
 
     /// Analyze answer and determine if follow-up is needed
@@ -446,5 +469,140 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanations.
         ];
 
         self.chat_completion(messages, Some(0.7), Some(2000)).await
+    }
+}
+
+// ===== Unit Tests =====
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    // Available models for testing
+    const MODEL_QWEN3_8B: &str = "Qwen/Qwen3-8B";
+    const MODEL_QWEN3_235B: &str = "Qwen/Qwen3-235B-A22B";
+    const MODEL_QWEN3_VL_THINKING: &str = "Qwen/Qwen3-VL-235B-A22B-Thinking";
+
+    // Simple test message
+    fn create_test_messages() -> Vec<ChatMessage> {
+        vec![
+            ChatMessage {
+                role: "user".to_string(),
+                content: "Say 'test passed' in exactly two words.".to_string(),
+            },
+        ]
+    }
+
+    // Helper to get API key from environment
+    fn get_api_key() -> Option<String> {
+        env::var("SILICONFLOW_API_KEY").ok()
+    }
+
+    #[tokio::test]
+    async fn test_qwen3_8b_api_call() {
+        let api_key = match get_api_key() {
+            Some(key) => key,
+            None => {
+                println!("Skipping test: SILICONFLOW_API_KEY not set");
+                return;
+            }
+        };
+
+        let client = SiliconFlowClient::new(api_key, MODEL_QWEN3_8B.to_string())
+            .expect("Failed to create client");
+
+        let messages = create_test_messages();
+        let result = client
+            .chat_completion_with_model(messages, MODEL_QWEN3_8B, Some(0.5), Some(50))
+            .await;
+
+        assert!(result.is_ok(), "Qwen3-8B API call failed: {:?}", result.err());
+        let response = result.unwrap();
+        assert!(!response.is_empty(), "Response should not be empty");
+        println!("Qwen3-8B response: {}", response);
+    }
+
+    #[tokio::test]
+    async fn test_qwen3_235b_api_call() {
+        let api_key = match get_api_key() {
+            Some(key) => key,
+            None => {
+                println!("Skipping test: SILICONFLOW_API_KEY not set");
+                return;
+            }
+        };
+
+        let client = SiliconFlowClient::new(api_key, MODEL_QWEN3_235B.to_string())
+            .expect("Failed to create client");
+
+        let messages = create_test_messages();
+        let result = client
+            .chat_completion_with_model(messages, MODEL_QWEN3_235B, Some(0.5), Some(50))
+            .await;
+
+        assert!(result.is_ok(), "Qwen3-235B API call failed: {:?}", result.err());
+        let response = result.unwrap();
+        assert!(!response.is_empty(), "Response should not be empty");
+        println!("Qwen3-235B response: {}", response);
+    }
+
+    #[tokio::test]
+    async fn test_qwen3_vl_thinking_api_call() {
+        let api_key = match get_api_key() {
+            Some(key) => key,
+            None => {
+                println!("Skipping test: SILICONFLOW_API_KEY not set");
+                return;
+            }
+        };
+
+        let client = SiliconFlowClient::new(api_key, MODEL_QWEN3_VL_THINKING.to_string())
+            .expect("Failed to create client");
+
+        let messages = create_test_messages();
+        let result = client
+            .chat_completion_with_model(messages, MODEL_QWEN3_VL_THINKING, Some(0.5), Some(50))
+            .await;
+
+        assert!(result.is_ok(), "Qwen3-VL-Thinking API call failed: {:?}", result.err());
+        let response = result.unwrap();
+        assert!(!response.is_empty(), "Response should not be empty");
+        println!("Qwen3-VL-Thinking (flagship) response: {}", response);
+    }
+
+    #[tokio::test]
+    async fn test_all_models_available() {
+        let api_key = match get_api_key() {
+            Some(key) => key,
+            None => {
+                println!("Skipping test: SILICONFLOW_API_KEY not set");
+                return;
+            }
+        };
+
+        let models = vec![MODEL_QWEN3_8B, MODEL_QWEN3_235B, MODEL_QWEN3_VL_THINKING];
+        let client = SiliconFlowClient::new(api_key, MODEL_QWEN3_8B.to_string())
+            .expect("Failed to create client");
+
+        let mut all_passed = true;
+        for model in &models {
+            let messages = create_test_messages();
+            let result = client
+                .chat_completion_with_model(messages, model, Some(0.5), Some(30))
+                .await;
+
+            match result {
+                Ok(response) => {
+                    println!("[PASS] {}: {}", model, &response[..response.len().min(50)]);
+                }
+                Err(e) => {
+                    println!("[FAIL] {}: {:?}", model, e);
+                    all_passed = false;
+                }
+            }
+        }
+
+        assert!(all_passed, "Not all models passed the API call test");
     }
 }

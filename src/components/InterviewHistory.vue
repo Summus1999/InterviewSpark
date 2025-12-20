@@ -47,6 +47,13 @@
           </div>
           <div class="session-actions">
             <button 
+              class="action-btn analyze-btn" 
+              @click.stop="openAnalysisModal(session.id!)"
+              title="生成AI分析"
+            >
+              ✨
+            </button>
+            <button 
               class="action-btn compare-btn" 
               @click.stop="openQuestionComparisonModal(session.questions[0])"
               title="对比该会话的首个问题"
@@ -148,6 +155,17 @@
         </div>
       </div>
     </div>
+    
+    <!-- Report Analysis Modal -->
+    <div v-if="showReportModal && selectedSessionForReport" class="modal-overlay" @click="closeAnalysisModal">
+      <div class="modal-content modal-large" @click.stop>
+        <button class="close-btn modal-close-btn" @click="closeAnalysisModal" aria-label="Close">✕</button>
+        <ReportView 
+          :session-id="selectedSessionForReport" 
+          @close="closeAnalysisModal"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -160,12 +178,15 @@
 import { ref, onMounted, computed } from 'vue'
 import type { InterviewSession, InterviewAnswer } from '../services/database'
 import { getSessions, getSession, getAnswers, deleteSession, deleteAllSessions, backupData, restoreData } from '../services/database'
+import ReportView from './ReportView.vue'
 
 const sessions = ref<InterviewSession[]>([])
 const selectedSession = ref<InterviewSession | null>(null)
 const sessionAnswers = ref<InterviewAnswer[]>([])
 const showComparisonModal = ref(false)
 const showConfirmDialog = ref(false)
+const showReportModal = ref(false)
+const selectedSessionForReport = ref<number | null>(null)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmAction = ref<(() => Promise<void>) | null>(null)
@@ -294,6 +315,16 @@ const executeConfirmAction = async () => {
   if (confirmAction.value) {
     await confirmAction.value()
   }
+}
+
+const openAnalysisModal = (sessionId: number) => {
+  selectedSessionForReport.value = sessionId
+  showReportModal.value = true
+}
+
+const closeAnalysisModal = () => {
+  showReportModal.value = false
+  selectedSessionForReport.value = null
 }
 
 const formatDate = (dateStr: string) => {
@@ -440,6 +471,11 @@ h3 {
   background: #fff0f0;
 }
 
+.analyze-btn:hover {
+  border-color: #fbbf24;
+  background: #fffbf0;
+}
+
 .session-preview {
   color: #666;
   font-size: 0.95rem;
@@ -475,6 +511,16 @@ h3 {
 
 .modal-large {
   max-width: 900px;
+  max-height: 90vh;
+  position: relative;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  font-size: 1.5rem;
 }
 
 .modal-small {
@@ -510,6 +556,14 @@ h3 {
 
 .close-btn:hover {
   color: #333;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  font-size: 1.5rem;
 }
 
 .modal-body {
