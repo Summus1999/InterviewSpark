@@ -773,10 +773,9 @@ main {
 
 .mode-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   margin-bottom: 2rem;
-  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -790,6 +789,7 @@ main {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .mode-btn {
