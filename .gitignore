@@ -23,8 +23,5 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Only ignore .qoder/rules, keep other .qoder files
+# Qoder internal rules and cache
 .qoder/
-!.qoder/
-.qoder/*
-!.qoder/rules

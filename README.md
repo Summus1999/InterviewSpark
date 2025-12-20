@@ -121,7 +121,7 @@ src/                      # Vue 3 前端代码
   App.vue                 # 主应用组件（面试流程控制）
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
-  components/             # Vue 组件
+  components/             # Vue 组件（33个）
     ResumeInput.vue       # 简历输入组件
     JobDescription.vue    # 岗位描述输入组件
     QuestionList.vue      # 问题列表展示组件
@@ -133,6 +133,10 @@ src/                      # Vue 3 前端代码
     ReportView.vue        # 复盘报告展示
     AnswerComparison.vue  # 答案对比组件
     FeedbackDisplay.vue   # AI 流式反馈展示
+    ThemeToggle.vue       # 主题切换组件
+    TimerDisplay.vue      # 计时器显示组件
+    ProfileView.vue       # 个人画像视图
+    ...及其他辅助组件
   composables/            # Vue Composition API
     useStreaming.ts       # 流式响应处理
     useAutoSave.ts        # 自动保存草稿
@@ -146,6 +150,7 @@ src/                      # Vue 3 前端代码
     streaming.ts          # 流式响应服务
     errorHandler.ts       # 统一错误处理
     draftStorage.ts       # IndexedDB 草稿存储
+    settings.ts           # 应用设置管理
 src-tauri/                # Rust 后端代码
   src/
     lib.rs                # Tauri 应用入口和命令定义
@@ -169,6 +174,11 @@ src-tauri/                # Rust 后端代码
       dashboard.rs        # 仪表板服务
       backup.rs           # 数据备份
       cache.rs            # 缓存管理
+      best_practices.rs   # 最佳实践提取
+      profile.rs          # 个人画像生成
+      recommendation.rs   # 智能推荐
+      industry.rs         # 行业对比分析
+      trends.rs           # 趋势计算
   Cargo.toml              # Rust 依赖配置
   tauri.conf.json         # Tauri 应用配置
 data/                     # 数据存储目录
