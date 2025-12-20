@@ -134,7 +134,8 @@ src/                      # Vue 3 前端代码
     ReportView.vue        # 复盘报告展示
     AnswerComparison.vue  # 答案对比组件
     FeedbackDisplay.vue   # AI 流式反馈展示
-    ThemeToggle.vue       # 主题切换组件
+    ThemeToggle.vue       # 主题切换组件（已废弃）
+    SettingsPanel.vue     # 设置面板（主题/模型/API Key）
     TimerDisplay.vue      # 计时器显示组件
     ProfileView.vue       # 个人画像视图
     ...及其他辅助组件
@@ -198,7 +199,7 @@ ProductionDoc.md          # 产品文档
 - **状态管理**: Pinia
 - **构建工具**: Vite 7.x
 - **代码规范**: ESLint + Prettier
-- **AI 能力**: 硅基流动 API (Qwen/Qwen3-8B)，支持流式输出
+- **AI 能力**: 硅基流动 API，支持 6 个模型（Qwen3-8B/Qwen Plus/Qwen Max/Kimi Large/GLM-4-6v/MiniMax-M2）
 - **数据库**: SQLite + rusqlite
 - **本地存储**: IndexedDB（草稿自动保存）
 - **语音能力**: Web Speech API (TTS + ASR)
@@ -223,8 +224,9 @@ ProductionDoc.md          # 产品文档
 - **答案对比** (Phase 5): 同一问题不同时期答案对比
 - **数据备份** (Phase 5): 支持 JSON 全量导出和导入
 - **技术优化** (Phase 6):
+  - 设置面板: 支持主题切换、模型选择、API Key 配置
   - AI 流式输出: 打字机效果实时显示 AI 反馈
   - API 重试机制: 指数退避策略，提升请求稳定性
   - 数据预加载: Pinia 缓存常用数据，减少加载延迟
   - 草稿自动保存: IndexedDB 本地存储，防止数据丢失
-  - 环境区分: 测试模式仅在开发环境显示，生产环境界面更简洁
+  - 环境区分: 测试模式仅在开发环境显示
