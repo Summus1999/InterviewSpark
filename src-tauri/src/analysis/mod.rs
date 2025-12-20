@@ -20,7 +20,7 @@ pub mod best_practices;
 pub mod industry;
 
 pub use content::ContentAnalyzer;
-pub use scoring::ScoringEngine;
+pub use scoring::{ScoringEngine, STARScoringEngine, STARScoringResult, STARScoreBreakdown};
 pub use report::ReportGenerator;
 pub use export::ReportExporter;
 pub use analytics::{AnalyticsEngine, TrendAnalytics, TrendDataPoint, PerformanceStatistics};

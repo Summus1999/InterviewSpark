@@ -89,6 +89,15 @@ fn extract_json_array(text: &str) -> Result<Vec<String>> {
 }
 
 impl SiliconFlowClient {
+    /// Get system prompt based on interviewer persona
+    pub fn get_persona_prompt(persona: &str) -> &'static str {
+        match persona {
+            "strict" => "You are a strict and rigorous interviewer. You evaluate answers with high standards, point out issues directly, demand precision, and maintain a formal tone. Focus on technical accuracy and completeness.",
+            "friendly" => "You are a friendly and encouraging interviewer. You provide constructive feedback, acknowledge strengths first, offer gentle suggestions, and maintain a warm tone. Help candidates feel comfortable while improving.",
+            "stress" => "You are a challenging interviewer who tests candidates under pressure. You ask probing follow-up questions, challenge assumptions, identify weak points, and maintain a direct tone. Push candidates to demonstrate depth.",
+            _ => "You are an experienced interviewer providing balanced, constructive feedback on interview answers."
+        }
+    }
     /// Create a new SiliconFlow client from environment variables
     pub fn from_env() -> Result<Self> {
         let api_key = env::var("SILICONFLOW_API_KEY")
@@ -270,8 +279,10 @@ impl SiliconFlowClient {
         resume: &str,
         job_description: &str,
         count: u32,
+        persona: &str,
     ) -> Result<Vec<String>> {
-        let system_prompt = "You are an experienced interviewer. You MUST respond with ONLY a valid JSON array, no additional text or explanations.";
+        let base_prompt = Self::get_persona_prompt(persona);
+        let system_prompt = format!("{} You MUST respond with ONLY a valid JSON array, no additional text or explanations.", base_prompt);
         
         let user_prompt = format!(
             "Based on the following resume and job description, generate exactly {} relevant interview questions.\n\nResume:\n{}\n\nJob Description:\n{}\n\nIMPORTANT: Return ONLY a JSON array of strings. No explanations, no markdown, just the array. Format: [\"question1\", \"question2\", ...]\n\n重要提示：只返回JSON数组，不要任何解释说明。",
@@ -281,7 +292,7 @@ impl SiliconFlowClient {
         let messages = vec![
             ChatMessage {
                 role: "system".to_string(),
-                content: system_prompt.to_string(),
+                content: system_prompt,
             },
             ChatMessage {
                 role: "user".to_string(),
@@ -312,8 +323,9 @@ impl SiliconFlowClient {
         question: &str,
         answer: &str,
         job_description: &str,
+        persona: &str,
     ) -> Result<String> {
-        let system_prompt = "You are an experienced interviewer providing constructive feedback on interview answers.";
+        let system_prompt = Self::get_persona_prompt(persona);
         
         let user_prompt = format!(
             "Question: {}\n\nCandidate's Answer: {}\n\nJob Description: {}\n\nPlease analyze this answer and provide:\n1. Strengths\n2. Areas for improvement\n3. Suggestions for better response\n4. Relevance to job requirements",
@@ -379,8 +391,10 @@ impl SiliconFlowClient {
         job_description: &str,
         max_followups: u32,
         preferred_types: &[String],
+        persona: &str,
     ) -> Result<String> {
-        let system_prompt = "You are an experienced interviewer analyzing candidate answers to determine if follow-up questions are needed. You MUST respond with ONLY valid JSON, no additional text.";
+        let base_prompt = Self::get_persona_prompt(persona);
+        let system_prompt = format!("{} You are analyzing candidate answers to determine if follow-up questions are needed. You MUST respond with ONLY valid JSON, no additional text.", base_prompt);
         
         let user_prompt = format!(
             r#"Original Question: {}

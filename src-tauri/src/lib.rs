@@ -11,8 +11,9 @@ mod db;
 mod analysis;
 
 use api::SiliconFlowClient;
+use api::siliconflow::SiliconFlowClient as SFClient;
 use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult};
-use analysis::{ContentAnalyzer, ScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, BackupData, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
+use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, BackupData, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
 use futures::StreamExt;
 use std::sync::{Arc, Mutex};
 use tauri::{State, Emitter};
@@ -59,6 +60,7 @@ async fn generate_questions(
     resume: String,
     job_description: String,
     count: u32,
+    persona: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
     let client = {
@@ -67,7 +69,7 @@ async fn generate_questions(
     };
     
     client
-        .generate_questions(&resume, &job_description, count)
+        .generate_questions(&resume, &job_description, count, &persona)
         .await
         .map_err(|e| e.to_string())
 }
@@ -88,6 +90,7 @@ async fn analyze_answer(
     question: String,
     answer: String,
     job_description: String,
+    persona: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let client = {
@@ -96,7 +99,7 @@ async fn analyze_answer(
     };
     
     client
-        .analyze_answer(&question, &answer, &job_description)
+        .analyze_answer(&question, &answer, &job_description, &persona)
         .await
         .map_err(|e| e.to_string())
 }
@@ -123,6 +126,7 @@ async fn analyze_for_followup(
     job_description: String,
     max_followups: u32,
     preferred_types: Vec<String>,
+    persona: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let client = {
@@ -138,6 +142,7 @@ async fn analyze_for_followup(
             &job_description,
             max_followups,
             &preferred_types,
+            &persona,
         )
         .await
         .map_err(|e| e.to_string())
@@ -150,6 +155,7 @@ async fn analyze_answer_stream(
     question: String,
     answer: String,
     job_description: String,
+    persona: String,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -159,7 +165,7 @@ async fn analyze_answer_stream(
     };
 
     // Prepare streaming messages
-    let system_prompt = "You are an experienced interviewer providing constructive feedback on interview answers.";
+    let system_prompt = SFClient::get_persona_prompt(&persona);
     let user_prompt = format!(
         "Question: {}\n\nCandidate's Answer: {}\n\nJob Description: {}\n\nPlease analyze this answer and provide:\n1. Strengths\n2. Areas for improvement\n3. Suggestions for better response\n4. Relevance to job requirements",
         question, answer, job_description
@@ -848,6 +854,17 @@ async fn update_api_config(
     Ok(())
 }
 
+/// Analyze answer using STAR method
+/// Returns STAR score breakdown and suggestions
+#[tauri::command]
+fn analyze_star_score(
+    answer: String,
+) -> Result<String, String> {
+    let star_result = STARScoringEngine::calculate_star_score(&answer);
+    serde_json::to_string(&star_result)
+        .map_err(|e| format!("Failed to serialize STAR result: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -945,7 +962,8 @@ pub fn run() {
       generate_practice_recommendations,
       extract_best_practices,
       generate_industry_comparison,
-      update_api_config
+      update_api_config,
+      analyze_star_score
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

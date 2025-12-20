@@ -480,3 +480,25 @@ export async function generateIndustryComparison(
 ): Promise<IndustryComparisonResult> {
   return await invoke('generate_industry_comparison', { userId })
 }
+
+// STAR scoring
+export interface STARScoreBreakdown {
+  situation: number
+  task: number
+  action: number
+  result: number
+}
+
+export interface STARScoringResult {
+  overall_score: number
+  breakdown: STARScoreBreakdown
+  completeness: number
+  suggestions: string[]
+}
+
+export async function analyzeSTARScore(
+  answer: string
+): Promise<STARScoringResult> {
+  const resultJson = await invoke<string>('analyze_star_score', { answer })
+  return JSON.parse(resultJson)
+}

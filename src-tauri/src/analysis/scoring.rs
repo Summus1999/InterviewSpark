@@ -45,6 +45,24 @@ pub struct ScoreBreakdown {
     pub expression: Option<f32>,
 }
 
+/// STAR method score breakdown
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct STARScoreBreakdown {
+    pub situation: f32,    // 1-10: Situation description score
+    pub task: f32,         // 1-10: Task explanation score
+    pub action: f32,       // 1-10: Action description score
+    pub result: f32,       // 1-10: Result quantification score
+}
+
+/// STAR scoring result
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct STARScoringResult {
+    pub overall_score: f32,        // 1-10: Overall STAR score
+    pub breakdown: STARScoreBreakdown,
+    pub completeness: f32,         // 0-100: Percentage of STAR elements present
+    pub suggestions: Vec<String>,  // Improvement suggestions for each dimension
+}
+
 impl ScoringEngine {
     /// Calculate overall score from content analysis
     pub fn calculate_score(
@@ -173,6 +191,163 @@ impl ScoringEngine {
             suggestions.push("保持目前的水平，继续完善细节".to_string());
         }
 
+        suggestions
+    }
+}
+
+/// STAR Scoring Engine
+pub struct STARScoringEngine;
+
+impl STARScoringEngine {
+    /// Calculate STAR score from answer text
+    pub fn calculate_star_score(answer: &str) -> STARScoringResult {
+        let situation_score = Self::evaluate_situation(answer);
+        let task_score = Self::evaluate_task(answer);
+        let action_score = Self::evaluate_action(answer);
+        let result_score = Self::evaluate_result(answer);
+
+        let overall_score = (situation_score + task_score + action_score + result_score) / 4.0;
+        let completeness = Self::calculate_completeness(situation_score, task_score, action_score, result_score);
+
+        let breakdown = STARScoreBreakdown {
+            situation: situation_score,
+            task: task_score,
+            action: action_score,
+            result: result_score,
+        };
+
+        let suggestions = Self::generate_star_suggestions(&breakdown);
+
+        STARScoringResult {
+            overall_score,
+            breakdown,
+            completeness,
+            suggestions,
+        }
+    }
+
+    /// Evaluate Situation dimension
+    fn evaluate_situation(answer: &str) -> f32 {
+        let answer_lower = answer.to_lowercase();
+        let situation_keywords = ["背景", "情况", "当时", "项目中", "团队里", "环境", "场景", "之前"];
+        
+        let mut score: f32 = 3.0; // Base score
+        
+        for keyword in situation_keywords.iter() {
+            if answer_lower.contains(keyword) {
+                score += 1.0;
+            }
+        }
+        
+        // Bonus for context richness
+        if answer.len() > 100 && answer.contains("在") {
+            score += 1.5;
+        }
+        
+        score.min(10.0)
+    }
+
+    /// Evaluate Task dimension
+    fn evaluate_task(answer: &str) -> f32 {
+        let answer_lower = answer.to_lowercase();
+        let task_keywords = ["任务", "目标", "需要", "负责", "职责", "要求", "期望", "挑战"];
+        
+        let mut score: f32 = 3.0;
+        
+        for keyword in task_keywords.iter() {
+            if answer_lower.contains(keyword) {
+                score += 1.0;
+            }
+        }
+        
+        // Bonus for clear task definition
+        if answer_lower.contains("目标是") || answer_lower.contains("任务是") {
+            score += 1.5;
+        }
+        
+        score.min(10.0)
+    }
+
+    /// Evaluate Action dimension
+    fn evaluate_action(answer: &str) -> f32 {
+        let answer_lower = answer.to_lowercase();
+        let action_keywords = ["采取", "实施", "执行", "通过", "使用", "做了", "进行", "设计", "开发"];
+        
+        let mut score: f32 = 3.0;
+        
+        for keyword in action_keywords.iter() {
+            if answer_lower.contains(keyword) {
+                score += 0.8;
+            }
+        }
+        
+        // Bonus for detailed action steps
+        if answer.contains("首先") || answer.contains("然后") || answer.contains("最后") {
+            score += 2.0;
+        }
+        
+        score.min(10.0)
+    }
+
+    /// Evaluate Result dimension
+    fn evaluate_result(answer: &str) -> f32 {
+        let answer_lower = answer.to_lowercase();
+        let result_keywords = ["结果", "效果", "提升", "降低", "完成", "达成", "成功", "实现"];
+        
+        let mut score: f32 = 3.0;
+        
+        for keyword in result_keywords.iter() {
+            if answer_lower.contains(keyword) {
+                score += 1.0;
+            }
+        }
+        
+        // Bonus for quantified results
+        let has_numbers = answer.chars().any(|c| c.is_numeric());
+        if has_numbers && (answer.contains("%") || answer.contains("倍") || answer.contains("次")) {
+            score += 2.5;
+        }
+        
+        score.min(10.0)
+    }
+
+    /// Calculate completeness percentage
+    fn calculate_completeness(s: f32, t: f32, a: f32, r: f32) -> f32 {
+        let threshold = 5.0; // Minimum score to be considered "present"
+        let mut present_count = 0;
+        
+        if s >= threshold { present_count += 1; }
+        if t >= threshold { present_count += 1; }
+        if a >= threshold { present_count += 1; }
+        if r >= threshold { present_count += 1; }
+        
+        (present_count as f32 / 4.0) * 100.0
+    }
+
+    /// Generate improvement suggestions
+    fn generate_star_suggestions(breakdown: &STARScoreBreakdown) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        if breakdown.situation < 6.0 {
+            suggestions.push("建议补充情境背景，说明当时的环境、团队情况或项目背景".to_string());
+        }
+        
+        if breakdown.task < 6.0 {
+            suggestions.push("建议明确描述任务目标，说明你需要完成什么、面临什么挑战".to_string());
+        }
+        
+        if breakdown.action < 6.0 {
+            suggestions.push("建议详细说明行动步骤，使用'首先、然后、最后'等连词展示执行过程".to_string());
+        }
+        
+        if breakdown.result < 6.0 {
+            suggestions.push("建议量化结果，用数据（百分比、倍数等）说明效果和成果".to_string());
+        }
+        
+        if suggestions.is_empty() {
+            suggestions.push("STAR结构完整，继续保持这种回答方式".to_string());
+        }
+        
         suggestions
     }
 }

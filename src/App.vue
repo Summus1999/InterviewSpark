@@ -208,6 +208,12 @@
               <div class="feedback-content" v-html="formattedFeedback"></div>
             </div>
             
+            <!-- STAR Score Display -->
+            <STARScoreDisplay 
+              v-if="showSTARScore && starScore"
+              :star-score="starScore"
+            />
+            
             <!-- Conversation History -->
             <ConversationHistory 
               v-if="conversationHistory.length > 0"
@@ -347,9 +353,10 @@ import RecommendationList from './components/RecommendationList.vue'
 import BestPracticesList from './components/BestPracticesList.vue'
 import OnboardingGuide from './components/OnboardingGuide.vue'
 import TooltipBubble from './components/TooltipBubble.vue'
-import { createSession, saveAnswer } from './services/database'
+import STARScoreDisplay from './components/STARScoreDisplay.vue'
+import { createSession, saveAnswer, analyzeSTARScore, type STARScoringResult } from './services/database'
 import { tts } from './services/voice'
-import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager } from './services/settings'
+import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
 import { DEFAULT_FOLLOWUP_SETTINGS } from './types/follow-up'
 
@@ -401,6 +408,10 @@ const followUpCount = ref(0)  // Track how many follow-ups for current question
 // Onboarding state
 const showOnboarding = ref(!OnboardingManager.isCompleted())
 
+// STAR scoring state
+const starScore = ref<STARScoringResult | null>(null)
+const showSTARScore = ref(false)
+
 const canGenerate = computed(() => {
   return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
 })
@@ -448,10 +459,12 @@ const generateQuestions = async () => {
   error.value = ''
   
   try {
+    const currentPersona = InterviewerPersonaManager.getPersona()
     questions.value = await invoke<string[]>('generate_questions', {
       resume: resume.value,
       jobDescription: jobDescription.value,
-      count: 5
+      count: 5,
+      persona: currentPersona
     })
     currentStep.value = 'questions'
     currentQuestionIndex.value = 0
@@ -534,11 +547,22 @@ const submitAnswer = async () => {
   error.value = ''
   
   try {
+    const currentPersona = InterviewerPersonaManager.getPersona()
     currentFeedback.value = await invoke<string>('analyze_answer', {
       question: questions.value[currentQuestionIndex.value],
       answer: currentAnswer.value,
-      jobDescription: jobDescription.value
+      jobDescription: jobDescription.value,
+      persona: currentPersona
     })
+    
+    // Analyze STAR score
+    try {
+      starScore.value = await analyzeSTARScore(currentAnswer.value)
+      showSTARScore.value = true
+    } catch (starErr) {
+      console.error('STAR analysis failed:', starErr)
+      showSTARScore.value = false
+    }
     
     // Save answer to database if session exists
     if (currentSessionId.value) {
@@ -665,13 +689,15 @@ const analyzeForFollowUp = async () => {
       .map(turn => `${turn.role === 'interviewer' ? 'Interviewer' : 'Candidate'}: ${turn.content}`)
       .join('\n\n')
 
+    const currentPersona = InterviewerPersonaManager.getPersona()
     const analysisJson = await invoke<string>('analyze_for_followup', {
       originalQuestion: questions.value[currentQuestionIndex.value],
       answer: currentAnswer.value,
       conversationHistory: historyText,
       jobDescription: jobDescription.value,
       maxFollowups: followUpSettings.value.maxFollowUps - followUpCount.value,
-      preferredTypes: followUpSettings.value.preferredTypes
+      preferredTypes: followUpSettings.value.preferredTypes,
+      persona: currentPersona
     })
 
     followUpAnalysis.value = JSON.parse(analysisJson)

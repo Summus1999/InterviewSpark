@@ -35,6 +35,17 @@
         </div>
 
         <div class="settings-item">
+          <label class="settings-label">面试官风格</label>
+          <select v-model="localPersona" class="settings-select">
+            <option value="balanced">平衡型</option>
+            <option value="friendly">友好型</option>
+            <option value="strict">严肃型</option>
+            <option value="stress">压力型</option>
+          </select>
+          <p class="persona-description">{{ personaDescription }}</p>
+        </div>
+
+        <div class="settings-item">
           <label class="settings-label">API Key</label>
           <div class="api-key-input-wrapper">
             <input
@@ -72,13 +83,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { ThemeManager, ApiSettingsManager, OnboardingManager, AVAILABLE_MODELS, type Theme, type ApiSettings } from '../services/settings'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ThemeManager, ApiSettingsManager, OnboardingManager, InterviewerPersonaManager, AVAILABLE_MODELS, type Theme, type ApiSettings, type InterviewerPersona } from '../services/settings'
 import { invoke } from '@tauri-apps/api/core'
 
 const showPanel = ref(false)
 const showApiKey = ref(false)
 const localTheme = ref<Theme>('light')
+const localPersona = ref<InterviewerPersona>('balanced')
 const localSettings = ref<ApiSettings>({
   model: 'Qwen/Qwen2.5-7B-Instruct',
   apiKey: ''
@@ -87,9 +99,14 @@ const localSettings = ref<ApiSettings>({
 const availableModels = AVAILABLE_MODELS
 const themeManager = ThemeManager.getInstance()
 
+const personaDescription = computed(() => {
+  return InterviewerPersonaManager.getPersonaDescription(localPersona.value)
+})
+
 onMounted(() => {
   localTheme.value = themeManager.getTheme()
   localSettings.value = ApiSettingsManager.getSettings()
+  localPersona.value = InterviewerPersonaManager.getPersona()
   
   // Add click outside listener
   document.addEventListener('click', handleClickOutside)
@@ -123,6 +140,7 @@ async function handleSave() {
   try {
     // Save to localStorage
     ApiSettingsManager.saveSettings(localSettings.value)
+    InterviewerPersonaManager.setPersona(localPersona.value)
     
     // Update backend configuration via Tauri command
     await invoke('update_api_config', {
@@ -230,6 +248,13 @@ function handleResetOnboarding() {
 .settings-input:focus {
   outline: none;
   border-color: var(--accent-primary);
+}
+
+.persona-description {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  line-height: 1.4;
 }
 
 .api-key-input-wrapper {

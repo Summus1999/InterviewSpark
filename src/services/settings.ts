@@ -11,10 +11,13 @@ const STORAGE_KEYS = {
   VOICE_SETTINGS: 'interview-spark-voice',
   TIMER_SETTINGS: 'interview-spark-timer',
   FOLLOWUP_SETTINGS: 'interview-spark-followup',
-  API_SETTINGS: 'interview-spark-api'
+  API_SETTINGS: 'interview-spark-api',
+  INTERVIEWER_PERSONA: 'interview-spark-persona'
 }
 
 export type Theme = 'light' | 'dark'
+
+export type InterviewerPersona = 'strict' | 'friendly' | 'stress' | 'balanced'
 
 export interface VoiceSettings {
   rate: number
@@ -287,5 +290,52 @@ export class TooltipManager {
       }
     }
     return []
+  }
+}
+
+/**
+ * Interviewer persona management
+ */
+export class InterviewerPersonaManager {
+  private static defaultPersona: InterviewerPersona = 'balanced'
+
+  static getPersona(): InterviewerPersona {
+    const saved = localStorage.getItem(STORAGE_KEYS.INTERVIEWER_PERSONA)
+    if (saved && this.isValidPersona(saved)) {
+      return saved as InterviewerPersona
+    }
+    return this.defaultPersona
+  }
+
+  static setPersona(persona: InterviewerPersona): void {
+    localStorage.setItem(STORAGE_KEYS.INTERVIEWER_PERSONA, persona)
+  }
+
+  static reset(): void {
+    localStorage.removeItem(STORAGE_KEYS.INTERVIEWER_PERSONA)
+  }
+
+  private static isValidPersona(value: string): boolean {
+    return ['strict', 'friendly', 'stress', 'balanced'].includes(value)
+  }
+
+  static getPersonaLabel(persona: InterviewerPersona): string {
+    const labels: Record<InterviewerPersona, string> = {
+      strict: '严肃型',
+      friendly: '友好型',
+      stress: '压力型',
+      balanced: '平衡型'
+    }
+    return labels[persona]
+  }
+
+  static getPersonaDescription(persona: InterviewerPersona): string {
+    const descriptions: Record<InterviewerPersona, string> = {
+      strict: '高标准评判，直接指出问题，要求精确，语气正式',
+      friendly: '鼓励式反馈，肯定优点，温和建议，语气亲切',
+      stress: '挑战式提问，追问细节，压力测试，语气直接',
+      balanced: '平衡的建设性反馈，综合各种面试风格'
+    }
+    return descriptions[persona]
   }
 }
