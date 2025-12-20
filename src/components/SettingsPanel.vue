@@ -1,6 +1,7 @@
 <template>
   <div class="settings-panel-container">
     <button
+      ref="saveButtonRef"
       class="settings-trigger"
       @click="togglePanel"
       :title="'设置'"
@@ -13,6 +14,9 @@
       </svg>
       <span class="label">设置</span>
     </button>
+
+    <!-- Confetti animation -->
+    <ConfettiSuccess ref="confettiRef" />
 
     <!-- Settings Dropdown Panel -->
     <transition name="slide-fade">
@@ -87,11 +91,14 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { ThemeManager, ApiSettingsManager, OnboardingManager, InterviewerPersonaManager, AVAILABLE_MODELS, type Theme, type ApiSettings, type InterviewerPersona } from '../services/settings'
 import { invoke } from '@tauri-apps/api/core'
+import ConfettiSuccess from './ConfettiSuccess.vue'
 
 const showPanel = ref(false)
 const showApiKey = ref(false)
 const localTheme = ref<Theme>('light')
 const localPersona = ref<InterviewerPersona>('balanced')
+const saveButtonRef = ref<HTMLElement | null>(null)
+const confettiRef = ref<InstanceType<typeof ConfettiSuccess> | null>(null)
 const localSettings = ref<ApiSettings>({
   model: 'Qwen/Qwen3-8B',
   apiKey: ''
@@ -154,7 +161,11 @@ async function handleSave() {
       apiKey: localSettings.value.apiKey
     })
     
-    alert('设置已保存')
+    // Trigger confetti animation
+    if (confettiRef.value && saveButtonRef.value) {
+      confettiRef.value.trigger(saveButtonRef.value)
+    }
+    
     showPanel.value = false
   } catch (error) {
     console.error('Failed to save settings:', error)
