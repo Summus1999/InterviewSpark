@@ -10,7 +10,8 @@ const STORAGE_KEYS = {
   ONBOARDING_COMPLETED: 'interview-spark-onboarding',
   VOICE_SETTINGS: 'interview-spark-voice',
   TIMER_SETTINGS: 'interview-spark-timer',
-  FOLLOWUP_SETTINGS: 'interview-spark-followup'
+  FOLLOWUP_SETTINGS: 'interview-spark-followup',
+  API_SETTINGS: 'interview-spark-api'
 }
 
 export type Theme = 'light' | 'dark'
@@ -27,6 +28,20 @@ export interface TimerConfig {
   autoSubmit: boolean
   showWarning: boolean
 }
+
+export interface ApiSettings {
+  model: string
+  apiKey: string
+}
+
+export const AVAILABLE_MODELS = [
+  { value: 'Qwen/Qwen3-8B', label: 'Qwen3-8B' },
+  { value: 'Qwen/Qwen2.5-Plus', label: 'Qwen Plus' },
+  { value: 'Qwen/Qwen-Max', label: 'Qwen Max' },
+  { value: 'Moonshot/Kimi-Large', label: 'Kimi Large' },
+  { value: 'THUDM/GLM-4V-Flash', label: 'GLM-4-6v' },
+  { value: 'MiniMax/MiniMax-M2', label: 'MiniMax-M2' },
+]
 
 /**
  * Theme management
@@ -206,5 +221,35 @@ export class FollowUpSettingsManager {
 
   static reset(): void {
     localStorage.removeItem(STORAGE_KEYS.FOLLOWUP_SETTINGS)
+  }
+}
+
+/**
+ * API settings management
+ */
+export class ApiSettingsManager {
+  private static defaultSettings: ApiSettings = {
+    model: 'Qwen/Qwen3-8B',
+    apiKey: ''
+  }
+
+  static getSettings(): ApiSettings {
+    const saved = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return this.defaultSettings
+      }
+    }
+    return this.defaultSettings
+  }
+
+  static saveSettings(settings: ApiSettings): void {
+    localStorage.setItem(STORAGE_KEYS.API_SETTINGS, JSON.stringify(settings))
+  }
+
+  static reset(): void {
+    localStorage.removeItem(STORAGE_KEYS.API_SETTINGS)
   }
 }

@@ -113,6 +113,29 @@ impl SiliconFlowClient {
         })
     }
 
+    /// Create a new SiliconFlow client with custom configuration
+    pub fn new(api_key: String, model: String) -> Result<Self> {
+        let base_url = "https://api.siliconflow.cn/v1".to_string();
+        
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()?;
+
+        Ok(Self {
+            api_key,
+            base_url,
+            model,
+            client,
+            retry_policy: RetryPolicy::default(),
+        })
+    }
+
+    /// Update client configuration
+    pub fn update_config(&mut self, api_key: String, model: String) {
+        self.api_key = api_key;
+        self.model = model;
+    }
+
     /// Call chat completion API with retry logic
     pub async fn chat_completion(
         &self,

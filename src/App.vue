@@ -4,7 +4,7 @@
       <h1>InterviewSpark</h1>
       <p>AI-Powered Mock Interview Platform</p>
       <div class="header-actions">
-        <ThemeToggle />
+        <SettingsPanel />
       </div>
     </header>
     <main>
@@ -263,7 +263,7 @@ import InterviewHistory from './components/InterviewHistory.vue'
 import QuestionBank from './components/QuestionBank.vue'
 import Dashboard from './components/Dashboard.vue'
 import VoiceControls from './components/VoiceControls.vue'
-import ThemeToggle from './components/ThemeToggle.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import ProgressBar from './components/ProgressBar.vue'
 import CompletionAnimation from './components/CompletionAnimation.vue'
 import TimerDisplay from './components/TimerDisplay.vue'

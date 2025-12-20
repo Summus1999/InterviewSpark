@@ -817,6 +817,37 @@ fn generate_industry_comparison(
         .map_err(|e| e.to_string())
 }
 
+/// Update API configuration at runtime
+/// 
+/// # Arguments
+/// * `model` - New model name
+/// * `api_key` - New API key
+/// * `state` - Application state
+/// 
+/// # Returns
+/// * `Ok(())` - Configuration updated successfully
+/// * `Err(String)` - Error message
+#[tauri::command]
+async fn update_api_config(
+    model: String,
+    api_key: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut client_guard = state.api_client.lock().unwrap();
+    
+    if api_key.is_empty() {
+        return Err("API key cannot be empty".to_string());
+    }
+    
+    // Create new client with updated config
+    let new_client = SiliconFlowClient::new(api_key, model)
+        .map_err(|e| e.to_string())?;
+    
+    *client_guard = Some(new_client);
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -913,7 +944,8 @@ pub fn run() {
       generate_interview_profile,
       generate_practice_recommendations,
       extract_best_practices,
-      generate_industry_comparison
+      generate_industry_comparison,
+      update_api_config
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
