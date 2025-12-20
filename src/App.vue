@@ -328,7 +328,7 @@ import BestPracticesList from './components/BestPracticesList.vue'
 import OnboardingGuide from './components/OnboardingGuide.vue'
 import TooltipBubble from './components/TooltipBubble.vue'
 import STARScoreDisplay from './components/STARScoreDisplay.vue'
-import { createSession, saveAnswer, analyzeSTARScore, type STARScoringResult } from './services/database'
+import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, type STARScoringResult } from './services/database'
 import { tts } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
@@ -530,15 +530,28 @@ const submitAnswer = async () => {
   error.value = ''
   
   try {
-    // Save answer to database if session exists (no immediate analysis)
+    // Save answer to database if session exists
     if (currentSessionId.value) {
-      await saveAnswer(
+      const answerId = await saveAnswer(
         currentSessionId.value,
         currentQuestionIndex.value,
         questions.value[currentQuestionIndex.value],
         currentAnswer.value,
         '' // No feedback yet - will be in final report
       )
+      
+      // Analyze and score answer for profile dimension calculation
+      try {
+        await analyzeAnswerWithScoring(
+          answerId,
+          currentAnswer.value,
+          questions.value[currentQuestionIndex.value],
+          jobDescription.value
+        )
+      } catch (analysisErr) {
+        // Non-critical error - log but don't block user flow
+        console.error('Failed to analyze answer:', analysisErr)
+      }
     }
     
     // Track answer in memory

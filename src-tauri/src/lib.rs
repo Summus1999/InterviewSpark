@@ -471,6 +471,83 @@ fn db_get_answer_analysis(answer_id: i64, state: State<'_, AppState>) -> Result<
         .map_err(|e| e.to_string())
 }
 
+/// Analyze all answers that don't have analysis records yet
+/// Returns the number of answers analyzed
+#[tauri::command]
+fn analyze_missing_answers(state: State<'_, AppState>) -> Result<i32, String> {
+    let sessions = state.db.get_interview_sessions()
+        .map_err(|e| e.to_string())?;
+    
+    log::info!("analyze_missing_answers: Found {} sessions", sessions.len());
+    
+    let mut analyzed_count = 0;
+    let mut total_answers = 0;
+    
+    for session in sessions {
+        if let Some(session_id) = session.id {
+            // Get job description for this session
+            let job_desc = if let Some(jd_id) = session.job_description_id {
+                state.db.get_job_descriptions()
+                    .ok()
+                    .and_then(|jds| jds.into_iter().find(|jd| jd.id == Some(jd_id)))
+                    .map(|jd| jd.content)
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            
+            let answers = state.db.get_answers_by_session(session_id)
+                .map_err(|e| e.to_string())?;
+            
+            total_answers += answers.len();
+            
+            for answer in answers {
+                if let Some(answer_id) = answer.id {
+                    // Check if analysis already exists
+                    let has_analysis = state.db.get_answer_analysis(answer_id)
+                        .ok()
+                        .flatten()
+                        .is_some();
+                    
+                    if !has_analysis && !answer.answer.trim().is_empty() {
+                        // Perform analysis
+                        if let Ok(analysis) = ContentAnalyzer::analyze(
+                            &answer.answer,
+                            &answer.question,
+                            &job_desc
+                        ) {
+                            let scoring_result = ScoringEngine::calculate_score(&analysis, None);
+                            
+                            let strengths_json = serde_json::to_string(&analysis.strengths).unwrap_or_default();
+                            let weaknesses_json = serde_json::to_string(&analysis.weaknesses).unwrap_or_default();
+                            let suggestions_json = serde_json::to_string(&ScoringEngine::get_improvement_suggestions(&scoring_result.score_breakdown)).unwrap_or_default();
+                            
+                            if state.db.save_answer_analysis(
+                                answer_id,
+                                scoring_result.content_score,
+                                scoring_result.score_breakdown.logic,
+                                scoring_result.score_breakdown.job_match,
+                                scoring_result.score_breakdown.keyword_coverage,
+                                scoring_result.expression_score,
+                                scoring_result.overall_score,
+                                strengths_json,
+                                weaknesses_json,
+                                suggestions_json,
+                            ).is_ok() {
+                                analyzed_count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    log::info!("analyze_missing_answers: Total answers={}, Analyzed={}", total_answers, analyzed_count);
+    
+    Ok(analyzed_count)
+}
+
 // ===== Session Report Commands =====
 
 /// Save session report
@@ -943,6 +1020,7 @@ pub fn run() {
       db_get_tags_for_question,
       db_get_questions_by_tag,
       analyze_answer_with_scoring,
+      analyze_missing_answers,
       db_get_answer_analysis,
       db_save_session_report,
       db_get_session_report,

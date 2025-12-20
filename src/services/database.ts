@@ -198,6 +198,24 @@ export async function saveAnswer(
   })
 }
 
+/**
+ * Analyze answer with content scoring and save to answer_analysis table
+ * This enables profile dimension calculations
+ */
+export async function analyzeAnswerWithScoring(
+  answerId: number,
+  answer: string,
+  question: string,
+  jobDescription: string
+): Promise<void> {
+  await invoke('analyze_answer_with_scoring', {
+    answerId,
+    answer,
+    question,
+    jobDescription
+  })
+}
+
 export async function getAnswers(sessionId: number): Promise<InterviewAnswer[]> {
   return await invoke('db_get_answers', { sessionId })
 }
@@ -387,6 +405,7 @@ export interface ProfileDimension {
   problem_solving: number
   domain_knowledge: number
   adaptability: number
+  job_intention: number
 }
 
 export interface InterviewProfile {

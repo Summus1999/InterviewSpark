@@ -131,6 +131,7 @@ pub struct ProfileDimension {
     pub problem_solving: f32,        // Problem solving score (0-100)
     pub domain_knowledge: f32,       // Domain knowledge score (0-100)
     pub adaptability: f32,           // Adaptability score (0-100)
+    pub job_intention: f32,          // Job intention match score (0-100)
 }
 
 /// Complete interview profile

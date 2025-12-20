@@ -49,6 +49,7 @@ impl ProfileGenerator {
             problem_solving: 0.0,
             domain_knowledge: 0.0,
             adaptability: 0.0,
+            job_intention: 0.0,
         };
         
         for session in sessions_to_analyze.iter() {
@@ -66,6 +67,8 @@ impl ProfileGenerator {
                             dimension_scores.problem_solving += analysis.logic_score;
                             dimension_scores.domain_knowledge += analysis.job_match_score;
                             dimension_scores.adaptability += analysis.keyword_coverage / 10.0;
+                            // Job intention based on job_match_score
+                            dimension_scores.job_intention += analysis.job_match_score;
                         }
                     }
                 }
@@ -87,6 +90,7 @@ impl ProfileGenerator {
             dimension_scores.problem_solving = (dimension_scores.problem_solving / answer_count) * 10.0;
             dimension_scores.domain_knowledge = (dimension_scores.domain_knowledge / answer_count) * 10.0;
             dimension_scores.adaptability = (dimension_scores.adaptability / answer_count) * 10.0;
+            dimension_scores.job_intention = (dimension_scores.job_intention / answer_count) * 10.0;
         }
         
         // Identify strongest and weakest dimensions
@@ -96,6 +100,7 @@ impl ProfileGenerator {
             ("problem_solving", dimension_scores.problem_solving),
             ("domain_knowledge", dimension_scores.domain_knowledge),
             ("adaptability", dimension_scores.adaptability),
+            ("job_intention", dimension_scores.job_intention),
         ];
         
         let strongest = dimensions_map
@@ -135,6 +140,7 @@ impl ProfileGenerator {
                 problem_solving: 0.0,
                 domain_knowledge: 0.0,
                 adaptability: 0.0,
+                job_intention: 0.0,
             },
             total_sessions: 0,
             average_score: 0.0,
@@ -172,6 +178,10 @@ impl ProfileGenerator {
             "adaptability" => {
                 suggestions.push("练习应对突发问题，提升灵活应变能力".to_string());
                 suggestions.push("扩展知识面，增强跨领域理解能力".to_string());
+            }
+            "job_intention" => {
+                suggestions.push("深入研究目标岗位的职责和要求".to_string());
+                suggestions.push("在回答中更多展现对岗位的理解和热情".to_string());
             }
             _ => {
                 suggestions.push("继续保持练习，全面提升各维度能力".to_string());

@@ -78,7 +78,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import type { InterviewProfile } from '../services/database'
 import { generateInterviewProfile } from '../services/database'
 import * as echarts from 'echarts'
@@ -94,6 +95,7 @@ const dimensionNames: Record<string, string> = {
   problem_solving: '问题解决',
   domain_knowledge: '领域知识',
   adaptability: '应变能力',
+  job_intention: '求职意向',
   none: '无',
   unknown: '未知'
 }
@@ -102,27 +104,56 @@ onMounted(async () => {
   await loadProfile()
 })
 
+// Watch for profile changes and render chart when data is available
+watch([profile, chartRef], async ([newProfile, newChartRef]) => {
+  if (newProfile && newChartRef) {
+    await nextTick()
+    renderChart()
+  }
+}, { flush: 'post' })
+
 const loadProfile = async () => {
   loading.value = true
   try {
+    // First, analyze any answers that don't have analysis records
+    const analyzed = await invoke<number>('analyze_missing_answers')
+    console.log('Analyzed missing answers:', analyzed)
+    
+    // Then generate profile
     profile.value = await generateInterviewProfile()
-    await nextTick()
-    renderChart()
+    console.log('Profile loaded:', profile.value)
   } catch (error) {
     console.error('Failed to load profile:', error)
   } finally {
     loading.value = false
+    // Ensure chart is rendered after DOM update
+    await nextTick()
+    // Use setTimeout to ensure DOM is fully painted
+    setTimeout(() => {
+      renderChart()
+    }, 100)
   }
 }
 
 const renderChart = () => {
-  if (!chartRef.value || !profile.value) return
+  console.log('renderChart called, chartRef:', chartRef.value, 'profile:', profile.value)
+  
+  if (!chartRef.value) {
+    console.error('chartRef is null, cannot render chart')
+    return
+  }
+  
+  if (!profile.value) {
+    console.error('profile is null, cannot render chart')
+    return
+  }
 
   if (chartInstance) {
     chartInstance.dispose()
   }
 
   chartInstance = echarts.init(chartRef.value)
+  console.log('ECharts instance created')
 
   const option = {
     radar: {
@@ -131,7 +162,8 @@ const renderChart = () => {
         { name: '沟通表达', max: 100 },
         { name: '问题解决', max: 100 },
         { name: '领域知识', max: 100 },
-        { name: '应变能力', max: 100 }
+        { name: '应变能力', max: 100 },
+        { name: '求职意向', max: 100 }
       ],
       radius: '60%'
     },
@@ -143,7 +175,8 @@ const renderChart = () => {
           profile.value.dimensions.communication,
           profile.value.dimensions.problem_solving,
           profile.value.dimensions.domain_knowledge,
-          profile.value.dimensions.adaptability
+          profile.value.dimensions.adaptability,
+          profile.value.dimensions.job_intention
         ],
         name: '能力维度',
         areaStyle: {
@@ -160,7 +193,9 @@ const renderChart = () => {
     }]
   }
 
+  console.log('Chart option:', option.series[0].data[0].value)
   chartInstance.setOption(option)
+  console.log('Chart rendered successfully')
 }
 
 const dimensionName = (key: string): string => {
