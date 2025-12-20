@@ -3,10 +3,20 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+/// User entity
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub id: Option<i64>,
+    pub username: String,
+    pub avatar_color: String,
+    pub created_at: String,
+}
+
 /// Resume entity
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Resume {
     pub id: Option<i64>,
+    pub user_id: i64,
     pub title: String,
     pub content: String,
     pub created_at: String,
@@ -17,6 +27,7 @@ pub struct Resume {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobDescription {
     pub id: Option<i64>,
+    pub user_id: i64,
     pub title: String,
     pub content: String,
     pub created_at: String,
@@ -27,6 +38,7 @@ pub struct JobDescription {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterviewSession {
     pub id: Option<i64>,
+    pub user_id: i64,
     pub resume_id: Option<i64>,
     pub job_description_id: Option<i64>,
     pub questions: Vec<String>,
@@ -49,6 +61,7 @@ pub struct InterviewAnswer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuestionBankItem {
     pub id: Option<i64>,
+    pub user_id: i64,
     pub question: String,
     pub best_answer: Option<String>,
     pub notes: Option<String>,
@@ -109,6 +122,7 @@ pub struct PerformanceStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuestionTag {
     pub id: Option<i64>,
+    pub user_id: i64,
     pub name: String,
     pub color: String,
     pub created_at: String,

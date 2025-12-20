@@ -323,6 +323,16 @@ export async function getDashboardData(): Promise<DashboardData> {
   return await invoke('get_dashboard_data')
 }
 
+export interface ActivityData {
+  date: string
+  count: number
+}
+
+export async function getActivityData(): Promise<ActivityData[]> {
+  const results = await invoke<[string, number][]>('get_activity_data')
+  return results.map(([date, count]) => ({ date, count }))
+}
+
 // History management operations
 export async function getAnswersComparison(
   question: string
@@ -520,4 +530,43 @@ export async function analyzeSTARScore(
 ): Promise<STARScoringResult> {
   const resultJson = await invoke<string>('analyze_star_score', { answer })
   return JSON.parse(resultJson)
+}
+
+// User management types and operations
+export interface User {
+  id?: number
+  username: string
+  avatar_color: string
+  created_at: string
+}
+
+export async function createUser(
+  username: string,
+  avatarColor: string
+): Promise<number> {
+  return await invoke('create_user', { username, avatarColor })
+}
+
+export async function getAllUsers(): Promise<User[]> {
+  return await invoke('get_all_users')
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  return await invoke('get_current_user')
+}
+
+export async function switchUser(userId: number): Promise<void> {
+  return await invoke('switch_user', { userId })
+}
+
+export async function updateUser(
+  id: number,
+  username: string,
+  avatarColor: string
+): Promise<void> {
+  return await invoke('update_user', { id, username, avatarColor })
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  return await invoke('delete_user', { id })
 }

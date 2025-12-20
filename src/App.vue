@@ -46,14 +46,17 @@
             <button @click="currentMode = 'history'" :class="{ active: currentMode === 'history' }" class="mode-btn">
               历史记录
             </button>
+            <button @click="currentMode = 'analysis'" :class="{ active: currentMode === 'analysis' }" class="mode-btn">
+              分析
+            </button>
+            <button @click="currentMode = 'activity'" :class="{ active: currentMode === 'activity' }" class="mode-btn">
+              活跃度
+            </button>
             <button @click="currentMode = 'bank'" :class="{ active: currentMode === 'bank' }" class="mode-btn">
               题库管理
             </button>
             <button @click="currentMode = 'dashboard'" :class="{ active: currentMode === 'dashboard' }" class="mode-btn">
-              仪表板
-            </button>
-            <button @click="currentMode = 'analysis'" :class="{ active: currentMode === 'analysis' }" class="mode-btn">
-              分析
+              用户
             </button>
             <button v-if="isDev" @click="showTest = true" class="toggle-btn">
               测试模式
@@ -269,6 +272,11 @@
             </div>
           </div>
         </div>
+
+        <!-- Activity Mode -->
+        <div v-if="currentMode === 'activity'">
+          <ActivityView />
+        </div>
       </section>
     </main>
     
@@ -328,8 +336,9 @@ import BestPracticesList from './components/BestPracticesList.vue'
 import OnboardingGuide from './components/OnboardingGuide.vue'
 import TooltipBubble from './components/TooltipBubble.vue'
 import STARScoreDisplay from './components/STARScoreDisplay.vue'
+import ActivityView from './components/ActivityView.vue'
 import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, type STARScoringResult } from './services/database'
-import { tts } from './services/voice'
+import { tts, stt } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
 
@@ -342,7 +351,7 @@ const greeting = ref('')
 const showTest = ref(false)
 
 // Mode management
-const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard' | 'analysis'>('interview')
+const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard' | 'analysis' | 'activity'>('interview')
 const analysisView = ref<'profile' | 'recommendation' | 'best-practices' | 'industry'>('profile')
 
 // Phase 2 interview variables
@@ -402,8 +411,9 @@ const modeTitle = computed(() => {
     case 'interview': return '模拟面试'
     case 'history': return '历史记录'
     case 'bank': return '题库管理'
-    case 'dashboard': return '仪表板'
+    case 'dashboard': return '用户'
     case 'analysis': return '分析'
+    case 'activity': return '活跃度'
     default: return '模拟面试'
   }
 })
@@ -500,6 +510,12 @@ const playFeedback = async () => {
 }
 
 const selectQuestion = (index: number) => {
+  // Stop voice playback and recording when switching questions
+  tts.stop()
+  if (stt) {
+    stt.stop()
+  }
+  
   currentQuestionIndex.value = index
 }
 
@@ -563,6 +579,12 @@ const submitAnswer = async () => {
     
     // Proceed to next question or finish interview
     if (currentQuestionIndex.value < questions.value.length - 1) {
+      // Stop voice playback and recording when switching questions
+      tts.stop()
+      if (stt) {
+        stt.stop()
+      }
+      
       // Go to next question
       currentQuestionIndex.value++
       currentAnswer.value = ''
@@ -591,6 +613,12 @@ const submitAnswer = async () => {
 }
 
 const nextQuestion = () => {
+  // Stop voice playback and recording when switching questions
+  tts.stop()
+  if (stt) {
+    stt.stop()
+  }
+  
   if (currentQuestionIndex.value < questions.value.length - 1) {
     currentQuestionIndex.value++
     currentAnswer.value = ''
@@ -760,6 +788,12 @@ const skipFollowUp = () => {
 }
 
 const proceedToNextQuestion = () => {
+  // Stop voice playback and recording when switching questions
+  tts.stop()
+  if (stt) {
+    stt.stop()
+  }
+  
   if (currentQuestionIndex.value < questions.value.length - 1) {
     currentQuestionIndex.value++
     currentAnswer.value = ''

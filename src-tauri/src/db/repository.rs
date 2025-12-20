@@ -37,17 +37,18 @@ impl Repository {
     pub fn get_resumes(&self) -> Result<Vec<Resume>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, title, content, created_at, updated_at FROM resumes ORDER BY updated_at DESC"
+            "SELECT id, user_id, title, content, created_at, updated_at FROM resumes ORDER BY updated_at DESC"
         )?;
         
         let resumes = stmt
             .query_map([], |row| {
                 Ok(Resume {
                     id: Some(row.get(0)?),
-                    title: row.get(1)?,
-                    content: row.get(2)?,
-                    created_at: row.get(3)?,
-                    updated_at: row.get(4)?,
+                    user_id: row.get(1)?,
+                    title: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -81,17 +82,18 @@ impl Repository {
     pub fn get_job_descriptions(&self) -> Result<Vec<JobDescription>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, title, content, created_at, updated_at FROM job_descriptions ORDER BY updated_at DESC"
+            "SELECT id, user_id, title, content, created_at, updated_at FROM job_descriptions ORDER BY updated_at DESC"
         )?;
         
         let jds = stmt
             .query_map([], |row| {
                 Ok(JobDescription {
                     id: Some(row.get(0)?),
-                    title: row.get(1)?,
-                    content: row.get(2)?,
-                    created_at: row.get(3)?,
-                    updated_at: row.get(4)?,
+                    user_id: row.get(1)?,
+                    title: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -131,21 +133,22 @@ impl Repository {
     pub fn get_interview_sessions(&self) -> Result<Vec<InterviewSession>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, resume_id, job_description_id, questions, created_at FROM interview_sessions ORDER BY created_at DESC"
+            "SELECT id, user_id, resume_id, job_description_id, questions, created_at FROM interview_sessions ORDER BY created_at DESC"
         )?;
         
         let sessions = stmt
             .query_map([], |row| {
-                let questions_json: String = row.get(3)?;
+                let questions_json: String = row.get(4)?;
                 let questions: Vec<String> = serde_json::from_str(&questions_json)
                     .unwrap_or_default();
                 
                 Ok(InterviewSession {
                     id: Some(row.get(0)?),
-                    resume_id: row.get(1)?,
-                    job_description_id: row.get(2)?,
+                    user_id: row.get(1)?,
+                    resume_id: row.get(2)?,
+                    job_description_id: row.get(3)?,
                     questions,
-                    created_at: row.get(4)?,
+                    created_at: row.get(5)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -157,21 +160,22 @@ impl Repository {
     pub fn get_session_by_id(&self, session_id: i64) -> Result<Option<InterviewSession>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, resume_id, job_description_id, questions, created_at FROM interview_sessions WHERE id = ?1"
+            "SELECT id, user_id, resume_id, job_description_id, questions, created_at FROM interview_sessions WHERE id = ?1"
         )?;
         
         let session = stmt
             .query_row(params![session_id], |row| {
-                let questions_json: String = row.get(3)?;
+                let questions_json: String = row.get(4)?;
                 let questions: Vec<String> = serde_json::from_str(&questions_json)
                     .unwrap_or_default();
                 
                 Ok(InterviewSession {
                     id: Some(row.get(0)?),
-                    resume_id: row.get(1)?,
-                    job_description_id: row.get(2)?,
+                    user_id: row.get(1)?,
+                    resume_id: row.get(2)?,
+                    job_description_id: row.get(3)?,
                     questions,
-                    created_at: row.get(4)?,
+                    created_at: row.get(5)?,
                 })
             })
             .optional()?;
@@ -250,19 +254,20 @@ impl Repository {
     pub fn get_question_bank(&self) -> Result<Vec<QuestionBankItem>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, question, best_answer, notes, job_category, created_at, updated_at FROM question_bank ORDER BY updated_at DESC"
+            "SELECT id, user_id, question, best_answer, notes, job_category, created_at, updated_at FROM question_bank ORDER BY updated_at DESC"
         )?;
         
         let items = stmt
             .query_map([], |row| {
                 Ok(QuestionBankItem {
                     id: Some(row.get(0)?),
-                    question: row.get(1)?,
-                    best_answer: row.get(2)?,
-                    notes: row.get(3)?,
-                    job_category: row.get(4)?,
-                    created_at: row.get(5)?,
-                    updated_at: row.get(6)?,
+                    user_id: row.get(1)?,
+                    question: row.get(2)?,
+                    best_answer: row.get(3)?,
+                    notes: row.get(4)?,
+                    job_category: row.get(5)?,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -724,7 +729,7 @@ impl Repository {
     pub fn get_recent_sessions(&self, limit: i32) -> Result<Vec<InterviewSession>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, resume_id, job_description_id, questions, created_at \
+            "SELECT id, user_id, resume_id, job_description_id, questions, created_at \
              FROM interview_sessions \
              ORDER BY created_at DESC \
              LIMIT ?1"
@@ -732,16 +737,17 @@ impl Repository {
 
         let sessions = stmt
             .query_map([limit], |row| {
-                let questions_json: String = row.get(3)?;
+                let questions_json: String = row.get(4)?;
                 let questions: Vec<String> = serde_json::from_str(&questions_json)
                     .unwrap_or_default();
                 
                 Ok(InterviewSession {
                     id: Some(row.get(0)?),
-                    resume_id: row.get(1)?,
-                    job_description_id: row.get(2)?,
+                    user_id: row.get(1)?,
+                    resume_id: row.get(2)?,
+                    job_description_id: row.get(3)?,
                     questions,
-                    created_at: row.get(4)?,
+                    created_at: row.get(5)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -830,7 +836,7 @@ impl Repository {
         
         // Get paginated data
         let mut stmt = conn.prepare(
-            "SELECT id, resume_id, job_description_id, questions, created_at \
+            "SELECT id, user_id, resume_id, job_description_id, questions, created_at \
              FROM interview_sessions \
              ORDER BY created_at DESC \
              LIMIT ?1 OFFSET ?2"
@@ -838,16 +844,17 @@ impl Repository {
         
         let sessions = stmt
             .query_map([page_size, offset], |row| {
-                let questions_json: String = row.get(3)?;
+                let questions_json: String = row.get(4)?;
                 let questions: Vec<String> = serde_json::from_str(&questions_json)
                     .unwrap_or_default();
                 
                 Ok(InterviewSession {
                     id: Some(row.get(0)?),
-                    resume_id: row.get(1)?,
-                    job_description_id: row.get(2)?,
+                    user_id: row.get(1)?,
+                    resume_id: row.get(2)?,
+                    job_description_id: row.get(3)?,
                     questions,
-                    created_at: row.get(4)?,
+                    created_at: row.get(5)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -899,7 +906,7 @@ impl Repository {
     pub fn get_sessions_by_date_range(&self, start_date: &str, end_date: &str) -> Result<Vec<InterviewSession>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, resume_id, job_description_id, questions, created_at \
+            "SELECT id, user_id, resume_id, job_description_id, questions, created_at \
              FROM interview_sessions \
              WHERE created_at >= ?1 AND created_at <= ?2 \
              ORDER BY created_at DESC"
@@ -907,16 +914,17 @@ impl Repository {
         
         let sessions = stmt
             .query_map(params![start_date, end_date], |row| {
-                let questions_json: String = row.get(3)?;
+                let questions_json: String = row.get(4)?;
                 let questions: Vec<String> = serde_json::from_str(&questions_json)
                     .unwrap_or_default();
                 
                 Ok(InterviewSession {
                     id: Some(row.get(0)?),
-                    resume_id: row.get(1)?,
-                    job_description_id: row.get(2)?,
+                    user_id: row.get(1)?,
+                    resume_id: row.get(2)?,
+                    job_description_id: row.get(3)?,
                     questions,
-                    created_at: row.get(4)?,
+                    created_at: row.get(5)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -977,16 +985,17 @@ impl Repository {
     pub fn get_all_tags(&self) -> Result<Vec<QuestionTag>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, color, created_at FROM question_tags ORDER BY name"
+            "SELECT id, user_id, name, color, created_at FROM question_tags ORDER BY name"
         )?;
         
         let tags = stmt
             .query_map([], |row| {
                 Ok(QuestionTag {
                     id: Some(row.get(0)?),
-                    name: row.get(1)?,
-                    color: row.get(2)?,
-                    created_at: row.get(3)?,
+                    user_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    created_at: row.get(4)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -1038,7 +1047,7 @@ impl Repository {
     pub fn get_tags_for_question(&self, question_id: i64) -> Result<Vec<QuestionTag>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT t.id, t.name, t.color, t.created_at \
+            "SELECT t.id, t.user_id, t.name, t.color, t.created_at \
              FROM question_tags t \
              JOIN question_tag_mappings m ON t.id = m.tag_id \
              WHERE m.question_bank_id = ?1 \
@@ -1049,9 +1058,10 @@ impl Repository {
             .query_map(params![question_id], |row| {
                 Ok(QuestionTag {
                     id: Some(row.get(0)?),
-                    name: row.get(1)?,
-                    color: row.get(2)?,
-                    created_at: row.get(3)?,
+                    user_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    created_at: row.get(4)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -1063,7 +1073,7 @@ impl Repository {
     pub fn get_questions_by_tag(&self, tag_id: i64) -> Result<Vec<QuestionBankItem>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT q.id, q.question, q.best_answer, q.notes, q.job_category, q.created_at, q.updated_at \
+            "SELECT q.id, q.user_id, q.question, q.best_answer, q.notes, q.job_category, q.created_at, q.updated_at \
              FROM question_bank q \
              JOIN question_tag_mappings m ON q.id = m.question_bank_id \
              WHERE m.tag_id = ?1 \
@@ -1074,16 +1084,144 @@ impl Repository {
             .query_map(params![tag_id], |row| {
                 Ok(QuestionBankItem {
                     id: Some(row.get(0)?),
-                    question: row.get(1)?,
-                    best_answer: row.get(2)?,
-                    notes: row.get(3)?,
-                    job_category: row.get(4)?,
-                    created_at: row.get(5)?,
-                    updated_at: row.get(6)?,
+                    user_id: row.get(1)?,
+                    question: row.get(2)?,
+                    best_answer: row.get(3)?,
+                    notes: row.get(4)?,
+                    job_category: row.get(5)?,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
         
         Ok(questions)
+    }
+
+    /// Get daily activity data for heatmap (past 365 days)
+    pub fn get_daily_activity(&self) -> Result<Vec<(String, i32)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT DATE(created_at) as date, COUNT(*) as count \
+             FROM interview_sessions \
+             WHERE created_at >= DATE('now', '-365 days') \
+             GROUP BY DATE(created_at) \
+             ORDER BY date ASC"
+        )?;
+        
+        let activity = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(activity)
+    }
+
+    // ===== User Management Operations =====
+
+    /// Create a new user
+    pub fn create_user(&self, username: String, avatar_color: String) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT INTO users (username, avatar_color, created_at) VALUES (?1, ?2, ?3)",
+            params![username, avatar_color, timestamp],
+        )?;
+        
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Get all users
+    pub fn get_all_users(&self) -> Result<Vec<User>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, username, avatar_color, created_at FROM users ORDER BY created_at ASC"
+        )?;
+        
+        let users = stmt
+            .query_map([], |row| {
+                Ok(User {
+                    id: Some(row.get(0)?),
+                    username: row.get(1)?,
+                    avatar_color: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(users)
+    }
+
+    /// Get user by ID
+    pub fn get_user_by_id(&self, id: i64) -> Result<Option<User>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, username, avatar_color, created_at FROM users WHERE id = ?1"
+        )?;
+        
+        let user = stmt
+            .query_row(params![id], |row| {
+                Ok(User {
+                    id: Some(row.get(0)?),
+                    username: row.get(1)?,
+                    avatar_color: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
+            })
+            .optional()?;
+        
+        Ok(user)
+    }
+
+    /// Update user information
+    pub fn update_user(&self, id: i64, username: String, avatar_color: String) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE users SET username = ?1, avatar_color = ?2 WHERE id = ?3",
+            params![username, avatar_color, id],
+        )?;
+        Ok(())
+    }
+
+    /// Delete user (cascade delete all user data)
+    pub fn delete_user(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        
+        // Foreign key ON DELETE CASCADE will handle related data
+        conn.execute("DELETE FROM users WHERE id = ?1", params![id])?;
+        
+        Ok(())
+    }
+
+    /// Get current user ID from config
+    pub fn get_current_user_id(&self) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let user_id: i64 = conn
+            .query_row(
+                "SELECT value FROM user_config WHERE key = 'current_user_id'",
+                [],
+                |row| {
+                    let value_str: String = row.get(0)?;
+                    Ok(value_str.parse::<i64>().unwrap_or(1))
+                }
+            )
+            .unwrap_or(1);
+        
+        Ok(user_id)
+    }
+
+    /// Set current user ID in config
+    pub fn set_current_user_id(&self, user_id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        conn.execute(
+            "INSERT OR REPLACE INTO user_config (key, value, updated_at) VALUES ('current_user_id', ?1, ?2)",
+            params![user_id.to_string(), timestamp],
+        )?;
+        
+        Ok(())
     }
 }

@@ -12,7 +12,7 @@ mod analysis;
 
 use api::SiliconFlowClient;
 use api::siliconflow::SiliconFlowClient as SFClient;
-use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult};
+use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult, User};
 use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
 use futures::StreamExt;
 use std::sync::{Arc, Mutex};
@@ -413,6 +413,52 @@ fn db_get_questions_by_tag(tag_id: i64, state: State<'_, AppState>) -> Result<Ve
         .map_err(|e| e.to_string())
 }
 
+// ===== User Management Commands =====
+
+/// Create a new user
+#[tauri::command]
+fn create_user(username: String, avatar_color: String, state: State<'_, AppState>) -> Result<i64, String> {
+    state.db.create_user(username, avatar_color)
+        .map_err(|e| e.to_string())
+}
+
+/// Get all users
+#[tauri::command]
+fn get_all_users(state: State<'_, AppState>) -> Result<Vec<db::User>, String> {
+    state.db.get_all_users()
+        .map_err(|e| e.to_string())
+}
+
+/// Get current user
+#[tauri::command]
+fn get_current_user(state: State<'_, AppState>) -> Result<Option<db::User>, String> {
+    let user_id = state.db.get_current_user_id()
+        .map_err(|e| e.to_string())?;
+    state.db.get_user_by_id(user_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Switch current user
+#[tauri::command]
+fn switch_user(user_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.set_current_user_id(user_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Update user information
+#[tauri::command]
+fn update_user(id: i64, username: String, avatar_color: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.update_user(id, username, avatar_color)
+        .map_err(|e| e.to_string())
+}
+
+/// Delete user
+#[tauri::command]
+fn delete_user(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_user(id)
+        .map_err(|e| e.to_string())
+}
+
 // ===== Answer Analysis Commands =====
 
 /// Analyze answer and save analysis results
@@ -740,6 +786,13 @@ fn get_dashboard_data(state: State<'_, AppState>) -> Result<DashboardData, Strin
     Ok(data)
 }
 
+/// Get daily activity data for heatmap
+#[tauri::command]
+fn get_activity_data(state: State<'_, AppState>) -> Result<Vec<(String, i32)>, String> {
+    state.db.get_daily_activity()
+        .map_err(|e| e.to_string())
+}
+
 // ===== History Management Commands =====
 
 /// Get comparison data for same question across different sessions
@@ -1032,6 +1085,7 @@ pub fn run() {
       export_report_html,
       get_trend_analytics,
       get_dashboard_data,
+      get_activity_data,
       get_answers_comparison,
       delete_session,
       delete_all_sessions,
@@ -1046,7 +1100,13 @@ pub fn run() {
       extract_best_practices,
       generate_industry_comparison,
       update_api_config,
-      analyze_star_score
+      analyze_star_score,
+      create_user,
+      get_all_users,
+      get_current_user,
+      switch_user,
+      update_user,
+      delete_user
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
