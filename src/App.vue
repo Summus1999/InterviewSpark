@@ -307,6 +307,9 @@
       @complete="handleOnboardingComplete"
       @skip="handleOnboardingSkip"
     />
+    
+    <!-- Version Display -->
+    <div class="version-display">{{ APP_VERSION }}</div>
   </div>
 </template>
 
@@ -341,6 +344,7 @@ import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, 
 import { tts, stt } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
+import { APP_VERSION } from './version'
 
 // Development mode detection
 const isDev = import.meta.env.DEV
@@ -1273,5 +1277,17 @@ main {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.version-display {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  font-size: 1.1rem;
+  color: silver;
+  opacity: 0.8;
+  font-family: monospace;
+  z-index: 100;
+  user-select: none;
 }
 </style>
