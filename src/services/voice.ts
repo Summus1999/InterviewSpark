@@ -116,6 +116,8 @@ export class SpeechToText {
   private isListening = false
   private onResultCallback: ((text: string) => void) | null = null
   private onEndCallback: (() => void) | null = null
+  private silenceTimer: ReturnType<typeof setTimeout> | null = null
+  private silenceTimeout = 10000 // 10 seconds of silence before auto-stop
 
   constructor() {
     // Check browser support
@@ -127,19 +129,40 @@ export class SpeechToText {
 
     this.recognition = new SpeechRecognition()
     this.recognition.lang = 'zh-CN'
-    this.recognition.continuous = false
-    this.recognition.interimResults = false
+    this.recognition.continuous = true  // Keep listening until manual stop or silence timeout
+    this.recognition.interimResults = true  // Get interim results to reset silence timer
     this.recognition.maxAlternatives = 1
 
     // Setup event handlers
     this.recognition.onresult = (event: any) => {
-      const result = event.results[0][0].transcript
-      if (this.onResultCallback) {
-        this.onResultCallback(result)
+      // Reset silence timer on any speech activity
+      this.resetSilenceTimer()
+      
+      // Get the latest result
+      const resultIndex = event.results.length - 1
+      const result = event.results[resultIndex]
+      
+      // Only emit final results
+      if (result.isFinal) {
+        const transcript = result[0].transcript
+        if (this.onResultCallback) {
+          this.onResultCallback(transcript)
+        }
       }
     }
 
+    this.recognition.onspeechstart = () => {
+      // Reset silence timer when speech starts
+      this.resetSilenceTimer()
+    }
+
+    this.recognition.onspeechend = () => {
+      // Start silence timer when speech ends
+      this.startSilenceTimer()
+    }
+
     this.recognition.onend = () => {
+      this.clearSilenceTimer()
       this.isListening = false
       if (this.onEndCallback) {
         this.onEndCallback()
@@ -148,7 +171,37 @@ export class SpeechToText {
 
     this.recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error)
+      this.clearSilenceTimer()
       this.isListening = false
+    }
+  }
+
+  /**
+   * Start silence timer
+   */
+  private startSilenceTimer(): void {
+    this.clearSilenceTimer()
+    this.silenceTimer = setTimeout(() => {
+      console.log('Silence timeout reached, stopping recognition')
+      this.stop()
+    }, this.silenceTimeout)
+  }
+
+  /**
+   * Reset silence timer
+   */
+  private resetSilenceTimer(): void {
+    this.clearSilenceTimer()
+    this.startSilenceTimer()
+  }
+
+  /**
+   * Clear silence timer
+   */
+  private clearSilenceTimer(): void {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer)
+      this.silenceTimer = null
     }
   }
 
@@ -169,6 +222,8 @@ export class SpeechToText {
     try {
       this.recognition.start()
       this.isListening = true
+      // Start silence timer immediately
+      this.startSilenceTimer()
     } catch (error) {
       console.error('Failed to start recognition:', error)
     }
@@ -178,6 +233,7 @@ export class SpeechToText {
    * Stop listening
    */
   stop(): void {
+    this.clearSilenceTimer()
     if (this.isListening) {
       this.recognition.stop()
       this.isListening = false

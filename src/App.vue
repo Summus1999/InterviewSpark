@@ -505,9 +505,15 @@ const selectQuestion = (index: number) => {
 
 /**
  * Handle voice transcript from speech recognition
+ * Appends new text to existing answer instead of overwriting
  */
 const handleVoiceTranscript = (text: string) => {
-  currentAnswer.value = text
+  if (currentAnswer.value.trim()) {
+    // Append with space separator
+    currentAnswer.value = currentAnswer.value.trim() + ' ' + text
+  } else {
+    currentAnswer.value = text
+  }
 }
 
 const submitAnswer = async () => {
