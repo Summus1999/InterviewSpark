@@ -537,14 +537,16 @@ export interface User {
   id?: number
   username: string
   avatar_color: string
+  avatar_path?: string
   created_at: string
 }
 
 export async function createUser(
   username: string,
-  avatarColor: string
+  avatarColor: string,
+  avatarPath?: string
 ): Promise<number> {
-  return await invoke('create_user', { username, avatarColor })
+  return await invoke('create_user', { username, avatarColor, avatarPath })
 }
 
 export async function getAllUsers(): Promise<User[]> {
@@ -562,11 +564,27 @@ export async function switchUser(userId: number): Promise<void> {
 export async function updateUser(
   id: number,
   username: string,
-  avatarColor: string
+  avatarColor: string,
+  avatarPath?: string
 ): Promise<void> {
-  return await invoke('update_user', { id, username, avatarColor })
+  return await invoke('update_user', { id, username, avatarColor, avatarPath })
 }
 
 export async function deleteUser(id: number): Promise<void> {
   return await invoke('delete_user', { id })
+}
+
+export async function uploadAvatar(
+  userId: number,
+  sourcePath: string
+): Promise<string> {
+  return await invoke('upload_avatar', { userId, sourcePath })
+}
+
+export async function getAvatarPath(avatarPath: string): Promise<string> {
+  return await invoke('get_avatar_path', { avatarPath })
+}
+
+export async function readImageBase64(filePath: string): Promise<string> {
+  return await invoke('read_image_base64', { filePath })
 }

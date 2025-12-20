@@ -6,6 +6,13 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:default",
+    "fs:default",
+    "fs:allow-read",
+    {
+      "identifier": "fs:scope",
+      "allow": ["$APPDATA/**", "$DOWNLOAD/**", "$PICTURE/**", "$HOME/**"]
+    }
   ]
 }

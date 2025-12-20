@@ -1121,13 +1121,13 @@ impl Repository {
     // ===== User Management Operations =====
 
     /// Create a new user
-    pub fn create_user(&self, username: String, avatar_color: String) -> Result<i64> {
+    pub fn create_user(&self, username: String, avatar_color: String, avatar_path: Option<String>) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let timestamp = now();
         
         conn.execute(
-            "INSERT INTO users (username, avatar_color, created_at) VALUES (?1, ?2, ?3)",
-            params![username, avatar_color, timestamp],
+            "INSERT INTO users (username, avatar_color, avatar_path, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![username, avatar_color, avatar_path, timestamp],
         )?;
         
         Ok(conn.last_insert_rowid())
@@ -1137,7 +1137,7 @@ impl Repository {
     pub fn get_all_users(&self) -> Result<Vec<User>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, username, avatar_color, created_at FROM users ORDER BY created_at ASC"
+            "SELECT id, username, avatar_color, avatar_path, created_at FROM users ORDER BY created_at ASC"
         )?;
         
         let users = stmt
@@ -1146,7 +1146,8 @@ impl Repository {
                     id: Some(row.get(0)?),
                     username: row.get(1)?,
                     avatar_color: row.get(2)?,
-                    created_at: row.get(3)?,
+                    avatar_path: row.get(3)?,
+                    created_at: row.get(4)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -1158,7 +1159,7 @@ impl Repository {
     pub fn get_user_by_id(&self, id: i64) -> Result<Option<User>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, username, avatar_color, created_at FROM users WHERE id = ?1"
+            "SELECT id, username, avatar_color, avatar_path, created_at FROM users WHERE id = ?1"
         )?;
         
         let user = stmt
@@ -1167,7 +1168,8 @@ impl Repository {
                     id: Some(row.get(0)?),
                     username: row.get(1)?,
                     avatar_color: row.get(2)?,
-                    created_at: row.get(3)?,
+                    avatar_path: row.get(3)?,
+                    created_at: row.get(4)?,
                 })
             })
             .optional()?;
@@ -1176,11 +1178,11 @@ impl Repository {
     }
 
     /// Update user information
-    pub fn update_user(&self, id: i64, username: String, avatar_color: String) -> Result<()> {
+    pub fn update_user(&self, id: i64, username: String, avatar_color: String, avatar_path: Option<String>) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "UPDATE users SET username = ?1, avatar_color = ?2 WHERE id = ?3",
-            params![username, avatar_color, id],
+            "UPDATE users SET username = ?1, avatar_color = ?2, avatar_path = ?3 WHERE id = ?4",
+            params![username, avatar_color, avatar_path, id],
         )?;
         Ok(())
     }

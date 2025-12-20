@@ -9,6 +9,7 @@ pub struct User {
     pub id: Option<i64>,
     pub username: String,
     pub avatar_color: String,
+    pub avatar_path: Option<String>,
     pub created_at: String,
 }
 

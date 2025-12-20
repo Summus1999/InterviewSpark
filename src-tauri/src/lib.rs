@@ -417,8 +417,8 @@ fn db_get_questions_by_tag(tag_id: i64, state: State<'_, AppState>) -> Result<Ve
 
 /// Create a new user
 #[tauri::command]
-fn create_user(username: String, avatar_color: String, state: State<'_, AppState>) -> Result<i64, String> {
-    state.db.create_user(username, avatar_color)
+fn create_user(username: String, avatar_color: String, avatar_path: Option<String>, state: State<'_, AppState>) -> Result<i64, String> {
+    state.db.create_user(username, avatar_color, avatar_path)
         .map_err(|e| e.to_string())
 }
 
@@ -447,8 +447,8 @@ fn switch_user(user_id: i64, state: State<'_, AppState>) -> Result<(), String> {
 
 /// Update user information
 #[tauri::command]
-fn update_user(id: i64, username: String, avatar_color: String, state: State<'_, AppState>) -> Result<(), String> {
-    state.db.update_user(id, username, avatar_color)
+fn update_user(id: i64, username: String, avatar_color: String, avatar_path: Option<String>, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.update_user(id, username, avatar_color, avatar_path)
         .map_err(|e| e.to_string())
 }
 
@@ -457,6 +457,67 @@ fn update_user(id: i64, username: String, avatar_color: String, state: State<'_,
 fn delete_user(id: i64, state: State<'_, AppState>) -> Result<(), String> {
     state.db.delete_user(id)
         .map_err(|e| e.to_string())
+}
+
+/// Upload user avatar image
+#[tauri::command]
+fn upload_avatar(
+    user_id: i64,
+    source_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    use tauri::Manager;
+    
+    // Get app data directory
+    let app_data_dir = app_handle.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+    
+    // Create avatars directory if not exists
+    let avatars_dir = app_data_dir.join("avatars");
+    fs::create_dir_all(&avatars_dir)
+        .map_err(|e| format!("Failed to create avatars directory: {}", e))?;
+    
+    // Get file extension
+    let source = Path::new(&source_path);
+    let ext = source.extension()
+        .and_then(|e| e.to_str())
+        .ok_or_else(|| "Invalid file extension".to_string())?;
+    
+    // Validate extension
+    if !["jpg", "jpeg", "png"].contains(&ext.to_lowercase().as_str()) {
+        return Err("Only jpg, jpeg, png formats are supported".to_string());
+    }
+    
+    // Target file path: avatars/{user_id}.{ext}
+    let target_filename = format!("{}.{}", user_id, ext);
+    let target_path = avatars_dir.join(&target_filename);
+    
+    // Copy file
+    fs::copy(&source_path, &target_path)
+        .map_err(|e| format!("Failed to copy avatar file: {}", e))?;
+    
+    // Return relative path
+    let relative_path = format!("avatars/{}", target_filename);
+    Ok(relative_path)
+}
+
+/// Get avatar absolute path for frontend display
+#[tauri::command]
+fn get_avatar_path(
+    avatar_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    use tauri::Manager;
+    
+    let app_data_dir = app_handle.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+    
+    let full_path = app_data_dir.join(&avatar_path);
+    Ok(full_path.to_string_lossy().to_string())
 }
 
 // ===== Answer Analysis Commands =====
@@ -1000,6 +1061,40 @@ fn analyze_star_score(
         .map_err(|e| format!("Failed to serialize STAR result: {}", e))
 }
 
+/// Read image file and return as base64 data URL
+#[tauri::command]
+fn read_image_base64(file_path: String) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    
+    let path = Path::new(&file_path);
+    
+    // Determine MIME type from extension
+    let ext = path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .ok_or_else(|| "Invalid file extension".to_string())?;
+    
+    let mime_type = match ext.as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => return Err(format!("Unsupported image format: {}", ext)),
+    };
+    
+    // Read file content
+    let content = fs::read(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    // Encode to base64
+    use base64::Engine;
+    let base64_data = base64::engine::general_purpose::STANDARD.encode(&content);
+    
+    // Return as data URL
+    Ok(format!("data:{};base64,{}", mime_type, base64_data))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -1028,6 +1123,8 @@ pub fn run() {
   let cache_manager = Arc::new(CacheManager::new());
   
   tauri::Builder::default()
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_fs::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -1106,7 +1203,10 @@ pub fn run() {
       get_current_user,
       switch_user,
       update_user,
-      delete_user
+      delete_user,
+      upload_avatar,
+      get_avatar_path,
+      read_image_base64
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

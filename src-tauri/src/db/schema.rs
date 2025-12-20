@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     avatar_color TEXT DEFAULT '#3b82f6',
+    avatar_path TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -209,6 +210,15 @@ fn migrate_tables(conn: &Connection) -> Result<()> {
                 []
             )?;
         }
+    }
+    
+    // Add avatar_path column to users table if it doesn't exist
+    if !column_exists(conn, "users", "avatar_path")? {
+        log::info!("Migrating users table to add avatar_path column");
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN avatar_path TEXT",
+            []
+        )?;
     }
     
     Ok(())

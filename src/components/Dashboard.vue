@@ -9,7 +9,10 @@
     </div>
 
     <div v-if="currentUser" class="current-user-card">
-      <div class="user-avatar" :style="{ backgroundColor: currentUser.avatar_color }">
+      <div v-if="currentUser.avatar_path" class="user-avatar-img">
+        <img :src="getAvatarUrl(currentUser.avatar_path)" :alt="currentUser.username" />
+      </div>
+      <div v-else class="user-avatar" :style="{ backgroundColor: currentUser.avatar_color }">
         {{ currentUser.username.charAt(0) }}
       </div>
       <div class="user-info">
@@ -17,6 +20,9 @@
         <p class="username">{{ currentUser.username }}</p>
         <p class="created-at">创建于 {{ formatDate(currentUser.created_at) }}</p>
       </div>
+      <button class="btn-guide" @click="handleResetOnboarding" title="重新查看使用引导">
+        📖 查看使用引导
+      </button>
     </div>
 
     <div class="users-list">
@@ -29,7 +35,10 @@
           :class="{ active: user.id === currentUser?.id }"
           @click="handleSwitchUser(user.id!)"
         >
-          <div class="user-avatar" :style="{ backgroundColor: user.avatar_color }">
+          <div v-if="user.avatar_path" class="user-avatar-img">
+            <img :src="getAvatarUrl(user.avatar_path)" :alt="user.username" />
+          </div>
+          <div v-else class="user-avatar" :style="{ backgroundColor: user.avatar_color }">
             {{ user.username.charAt(0) }}
           </div>
           <div class="user-details">
@@ -66,6 +75,20 @@
               placeholder="输入用户名"
               required
             />
+          </div>
+          <div class="form-group">
+            <label>头像</label>
+            <div class="avatar-preview">
+              <div v-if="newUser.avatar_preview" class="preview-img">
+                <img :src="newUser.avatar_preview" alt="预览" />
+              </div>
+              <div v-else class="preview-placeholder" :style="{ backgroundColor: newUser.avatar_color }">
+                {{ newUser.username.charAt(0) || '?' }}
+              </div>
+              <button type="button" class="btn-upload" @click="handleSelectAvatar('create')">
+                选择图片
+              </button>
+            </div>
           </div>
           <div class="form-group">
             <label>头像颜色</label>
@@ -105,6 +128,23 @@
             />
           </div>
           <div class="form-group">
+            <label>头像</label>
+            <div class="avatar-preview">
+              <div v-if="editingUser.avatar_preview" class="preview-img">
+                <img :src="editingUser.avatar_preview" alt="预览" />
+              </div>
+              <div v-else-if="editingUser.avatar_path" class="preview-img">
+                <img :src="getAvatarUrl(editingUser.avatar_path)" alt="当前头像" />
+              </div>
+              <div v-else class="preview-placeholder" :style="{ backgroundColor: editingUser.avatar_color }">
+                {{ editingUser.username.charAt(0) || '?' }}
+              </div>
+              <button type="button" class="btn-upload" @click="handleSelectAvatar('edit')">
+                选择图片
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
             <label>头像颜色</label>
             <div class="color-picker">
               <div
@@ -131,6 +171,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { open } from '@tauri-apps/plugin-dialog'
 import {
   getAllUsers,
   getCurrentUser,
@@ -138,18 +179,27 @@ import {
   switchUser,
   updateUser,
   deleteUser,
+  uploadAvatar,
+  getAvatarPath,
+  readImageBase64,
   type User
 } from '../services/database'
+import { OnboardingManager, TooltipManager } from '../services/settings'
 
 const users = ref<User[]>([])
 const currentUser = ref<User | null>(null)
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
+
+// Preload avatar URLs
+const avatarUrls = ref<Map<string, string>>(new Map())
 const newUser = ref({
   username: '',
-  avatar_color: '#3b82f6'
+  avatar_color: '#3b82f6',
+  avatar_preview: '',
+  avatar_file_path: ''
 })
-const editingUser = ref<User>({
+const editingUser = ref<User & { avatar_preview?: string; avatar_file_path?: string }>({
   username: '',
   avatar_color: '#3b82f6',
   created_at: ''
@@ -170,6 +220,24 @@ async function loadUsers() {
   try {
     users.value = await getAllUsers()
     currentUser.value = await getCurrentUser()
+    
+    // Preload avatar URLs as base64
+    const avatarPaths = [
+      ...users.value.filter(u => u.avatar_path).map(u => u.avatar_path!),
+      ...(currentUser.value?.avatar_path ? [currentUser.value.avatar_path] : [])
+    ]
+    
+    for (const path of avatarPaths) {
+      if (!avatarUrls.value.has(path)) {
+        try {
+          const fullPath = await getAvatarPath(path)
+          const base64Url = await readImageBase64(fullPath)
+          avatarUrls.value.set(path, base64Url)
+        } catch (e) {
+          console.error('Failed to load avatar:', path, e)
+        }
+      }
+    }
   } catch (error) {
     console.error('Failed to load users:', error)
   }
@@ -177,9 +245,24 @@ async function loadUsers() {
 
 async function handleCreateUser() {
   try {
-    await createUser(newUser.value.username, newUser.value.avatar_color)
+    let avatarPath: string | undefined
+    
+    // If user selected an image, upload it first
+    if (newUser.value.avatar_file_path) {
+      // Create user with temp data to get user ID
+      const userId = await createUser(newUser.value.username, newUser.value.avatar_color)
+      
+      // Upload avatar
+      avatarPath = await uploadAvatar(userId, newUser.value.avatar_file_path)
+      
+      // Update user with avatar path
+      await updateUser(userId, newUser.value.username, newUser.value.avatar_color, avatarPath)
+    } else {
+      await createUser(newUser.value.username, newUser.value.avatar_color)
+    }
+    
     showCreateDialog.value = false
-    newUser.value = { username: '', avatar_color: '#3b82f6' }
+    newUser.value = { username: '', avatar_color: '#3b82f6', avatar_preview: '', avatar_file_path: '' }
     await loadUsers()
   } catch (error) {
     console.error('Failed to create user:', error)
@@ -206,10 +289,18 @@ function handleEditUser(user: User) {
 
 async function handleUpdateUser() {
   try {
+    let avatarPath = editingUser.value.avatar_path
+    
+    // If user selected a new image, upload it
+    if (editingUser.value.avatar_file_path) {
+      avatarPath = await uploadAvatar(editingUser.value.id!, editingUser.value.avatar_file_path)
+    }
+    
     await updateUser(
       editingUser.value.id!,
       editingUser.value.username,
-      editingUser.value.avatar_color
+      editingUser.value.avatar_color,
+      avatarPath
     )
     showEditDialog.value = false
     await loadUsers()
@@ -243,6 +334,58 @@ function formatDate(dateStr: string): string {
     month: '2-digit',
     day: '2-digit'
   })
+}
+
+function handleResetOnboarding() {
+  if (!confirm('确定要重新查看使用引导吗？这将重置所有提示状态。')) {
+    return
+  }
+  OnboardingManager.reset()
+  TooltipManager.resetAll()
+  window.location.reload()
+}
+
+async function handleSelectAvatar(mode: 'create' | 'edit') {
+  try {
+    const selected = await open({
+      multiple: false,
+      filters: [{
+        name: 'Image',
+        extensions: ['jpg', 'jpeg', 'png']
+      }]
+    })
+    
+    // Tauri v2 returns file path as string or null
+    let filePath: string | null = null
+    if (selected) {
+      // Handle different return formats
+      if (typeof selected === 'string') {
+        filePath = selected
+      } else if (typeof selected === 'object' && 'path' in selected) {
+        filePath = (selected as { path: string }).path
+      }
+    }
+    
+    if (filePath) {
+      // Use base64 for preview
+      const preview = await readImageBase64(filePath)
+      
+      if (mode === 'create') {
+        newUser.value.avatar_preview = preview
+        newUser.value.avatar_file_path = filePath
+      } else {
+        editingUser.value.avatar_preview = preview
+        editingUser.value.avatar_file_path = filePath
+      }
+    }
+  } catch (error) {
+    console.error('Failed to select avatar:', error)
+    alert('选择头像失败')
+  }
+}
+
+function getAvatarUrl(avatarPath: string): string {
+  return avatarUrls.value.get(avatarPath) || ''
 }
 
 onMounted(() => {
@@ -291,6 +434,28 @@ onMounted(() => {
   color: white;
   font-size: 1.5rem;
   font-weight: bold;
+  flex-shrink: 0;
+}
+
+.user-avatar-img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-avatar-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-card .user-avatar,
+.user-card .user-avatar-img {
+  width: 45px;
+  height: 45px;
+  font-size: 1.1rem;
 }
 
 .user-info h3 {
@@ -375,17 +540,19 @@ onMounted(() => {
 }
 
 .btn-icon {
-  background: none;
+  background: var(--primary-color);
   border: none;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0.25rem;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+  font-size: 1rem;
+  padding: 0.4rem 0.6rem;
+  color: white;
+  transition: all 0.2s;
 }
 
 .btn-icon:hover:not(:disabled) {
-  opacity: 1;
+  background: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
 .btn-icon:disabled {
@@ -480,6 +647,52 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
+.avatar-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.preview-img,
+.preview-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.preview-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.btn-upload {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btn-upload:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
 .color-picker {
   display: flex;
   gap: 0.75rem;
@@ -509,5 +722,26 @@ onMounted(() => {
   gap: 1rem;
   justify-content: flex-end;
   margin-top: 2rem;
+}
+
+.btn-guide {
+  background: var(--secondary-color, #667eea);
+  color: white;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-guide:hover {
+  background: var(--secondary-hover, #5568d3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
 }
 </style>
