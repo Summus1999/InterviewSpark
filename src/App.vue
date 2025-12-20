@@ -358,7 +358,6 @@ import { createSession, saveAnswer, analyzeSTARScore, type STARScoringResult } f
 import { tts } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
-import { DEFAULT_FOLLOWUP_SETTINGS } from './types/follow-up'
 
 // Development mode detection
 const isDev = import.meta.env.DEV

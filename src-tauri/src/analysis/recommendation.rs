@@ -66,7 +66,7 @@ impl RecommendationEngine {
             .into_iter()
             .take(limit)
             .enumerate()
-            .map(|(idx, (id, question, score, dimension, reason))| {
+            .map(|(_idx, (id, question, score, dimension, reason))| {
                 PracticeRecommendation {
                     question_id: id,
                     question,

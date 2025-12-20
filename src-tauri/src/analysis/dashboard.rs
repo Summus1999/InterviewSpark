@@ -1,6 +1,6 @@
 //! Dashboard service for aggregating statistics and analytics data
 
-use crate::db::{Repository, InterviewSession};
+use crate::db::Repository;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

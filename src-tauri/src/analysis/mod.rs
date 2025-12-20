@@ -24,7 +24,7 @@ pub use scoring::{ScoringEngine, STARScoringEngine, STARScoringResult, STARScore
 pub use report::ReportGenerator;
 pub use export::ReportExporter;
 pub use analytics::{AnalyticsEngine, TrendAnalytics, TrendDataPoint, PerformanceStatistics};
-pub use dashboard::{DashboardService, DashboardData, DashboardStats, TopQuestion, WeakArea, RecentSessionInfo};
+pub use dashboard::{DashboardService, DashboardData};
 pub use backup::{BackupManager, BackupData};
 pub use cache::{CacheManager, CacheEntry};
 pub use profile::ProfileGenerator;

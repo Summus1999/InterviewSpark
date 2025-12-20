@@ -3,6 +3,8 @@
 //! Implements exponential backoff retry policy for handling transient failures
 
 use anyhow::Result;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -94,22 +96,25 @@ mod tests {
     #[tokio::test]
     async fn test_retry_success_on_second_attempt() {
         let policy = RetryPolicy::default();
-        let mut attempt = 0;
+        let attempt = Rc::new(RefCell::new(0));
 
         let result = policy
-            .execute(|| async {
-                attempt += 1;
-                if attempt == 1 {
-                    anyhow::bail!("First attempt fails")
-                } else {
-                    Ok("Success")
+            .execute(|| {
+                let attempt = attempt.clone();
+                async move {
+                    *attempt.borrow_mut() += 1;
+                    if *attempt.borrow() == 1 {
+                        anyhow::bail!("First attempt fails")
+                    } else {
+                        Ok("Success")
+                    }
                 }
             })
             .await;
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success");
-        assert_eq!(attempt, 2);
+        assert_eq!(*attempt.borrow(), 2);
     }
 
     #[tokio::test]
@@ -119,16 +124,19 @@ mod tests {
             initial_delay_ms: 10,
             ..Default::default()
         };
-        let mut attempt = 0;
+        let attempt = Rc::new(RefCell::new(0));
 
-        let result = policy
-            .execute(|| async {
-                attempt += 1;
-                anyhow::bail!("Always fails")
+        let result: Result<&str> = policy
+            .execute(|| {
+                let attempt = attempt.clone();
+                async move {
+                    *attempt.borrow_mut() += 1;
+                    anyhow::bail!("Always fails")
+                }
             })
             .await;
 
         assert!(result.is_err());
-        assert_eq!(attempt, 2);
+        assert_eq!(*attempt.borrow(), 2);
     }
 }

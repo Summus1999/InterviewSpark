@@ -461,25 +461,29 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 - 实现 `ScoringEngine` 评分引擎
 - 扩展 Repository 新增分析相关 CRUD 方法
 
-**模块 2: 复盘报告生成**
+#### 模块 2: 复盘报告生成
+
 - 创建 `analysis/report.rs` 报告生成模块
 - 创建 `analysis/export.rs` 报告导出模块（支持 Text/HTML）
 - 创建 `ReportView.vue` 报告展示组件
 - 暴露 Tauri 命令：`generate_comprehensive_report`, `export_report_text`, `export_report_html`
 
 **模块 3: 成长曲线追踪**
-- 创建 `analysis/analytics.rs` 趋势分析模块
+
+- 创建 `analysis/analytics.rs` 趾势分析模块
 - 实现 `AnalyticsEngine` 和 `TrendAnalytics` 数据结构
 - 创建 `TrendChart.vue`, `StatisticsCard.vue`, `GrowthView.vue` 组件
 - 安装 ECharts 图表库
 
 **模块 4: 可视化仪表板**
+
 - 创建 `analysis/dashboard.rs` 仪表板服务
 - 实现 `DashboardService` 和 `DashboardData` 数据结构
 - 创建 `Dashboard.vue`, `DashboardCards.vue`, `TopQuestionsList.vue`, `WeakAreasList.vue`, `RecentSessionsList.vue` 组件
 - 集成仪表板导航到 `App.vue`
 
 **模块 5: 历史记录管理增强**
+
 - 实现 `get_answers_comparison()`, `delete_session()`, `delete_all_sessions()` 方法
 - 创建 `analysis/backup.rs` 备份模块
 - 实现 `BackupManager` 支持 JSON 全量导出/导入
@@ -487,6 +491,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 - 更新 `InterviewHistory.vue` 添加删除、备份、对比功能
 
 **模块 6: 数据分析后端优化**
+
 - 实现分页查询：`get_sessions_paginated()`, `get_answers_paginated()`
 - 实现日期范围过滤：`get_sessions_by_date_range()`, `get_reports_by_date_range()`
 - 创建 `analysis/cache.rs` 缓存模块
@@ -494,6 +499,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 - 扩展前端 `database.ts` 服务层
 
 **测试验证**:
+
 - ✅ 后端编译成功（9 个未使用导入警告）
 - ✅ 前端编译成功（49 个模块）
 - ✅ 报告生成功能正常

@@ -12,6 +12,7 @@ pub struct ScoringWeights {
     pub logic_weight: f32,           // 30%
     pub job_match_weight: f32,       // 35%
     pub keyword_weight: f32,         // 20%
+    #[allow(dead_code)]
     pub expression_weight: f32,      // 15%
 }
 
