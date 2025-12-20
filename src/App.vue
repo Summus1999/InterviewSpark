@@ -201,48 +201,7 @@
             <p v-if="error" class="error-message">{{ error }}</p>
           </div>
 
-          <!-- Step 4: Feedback -->
-          <div v-if="currentStep === 'feedback'" class="step-content">
-            <div class="feedback-card">
-              <h3>AI 反馈</h3>
-              <div class="feedback-content" v-html="formattedFeedback"></div>
-            </div>
-            
-            <!-- STAR Score Display -->
-            <STARScoreDisplay 
-              v-if="showSTARScore && starScore"
-              :star-score="starScore"
-            />
-            
-            <!-- Conversation History -->
-            <ConversationHistory 
-              v-if="conversationHistory.length > 0"
-              :turns="conversationHistory"
-              @clear="clearConversationHistory"
-            />
-            
-            <div class="action-buttons">
-              <button 
-                v-if="currentQuestionIndex < questions.length - 1"
-                @click="nextQuestionAfterFeedback"
-                class="primary-btn"
-              >
-                下一题
-              </button>
-              <button 
-                v-else
-                @click="finishInterview"
-                class="primary-btn"
-              >
-                完成面试
-              </button>
-              <button @click="currentStep = 'interview'" class="secondary-btn">
-                返回答题
-              </button>
-            </div>
-          </div>
-
-          <!-- Step 5: Follow-up Panel -->
+          <!-- Step 4: Follow-up Panel (if enabled) -->
           <div v-if="currentStep === 'followup'" class="step-content">
             <FollowUpPanel 
               v-if="followUpAnalysis"
@@ -313,6 +272,16 @@
       </section>
     </main>
     
+    <!-- Final Report Modal -->
+    <div v-if="showFinalReport" class="report-overlay" @click.self="closeCompletionAnimation">
+      <div class="report-modal">
+        <button class="report-close-btn" @click="closeCompletionAnimation" aria-label="Close report">
+          ✕
+        </button>
+        <ReportView v-if="currentSessionId" :session-id="currentSessionId" />
+      </div>
+    </div>
+    
     <!-- Completion Animation -->
     <CompletionAnimation 
       :show="showCompletionAnimation"
@@ -347,6 +316,7 @@ import TimerSettings from './components/TimerSettings.vue'
 import FollowUpSettingsComp from './components/FollowUpSettings.vue'
 import FollowUpPanel from './components/FollowUpPanel.vue'
 import ConversationHistory from './components/ConversationHistory.vue'
+import ReportView from './components/ReportView.vue'
 import ProfileView from './components/ProfileView.vue'
 import IndustryComparison from './components/IndustryComparison.vue'
 import RecommendationList from './components/RecommendationList.vue'
@@ -407,7 +377,11 @@ const followUpCount = ref(0)  // Track how many follow-ups for current question
 // Onboarding state
 const showOnboarding = ref(!OnboardingManager.isCompleted())
 
-// STAR scoring state
+// Final report state
+const showFinalReport = ref(false)
+const reportLoading = ref(false)
+
+// STAR scoring state (deprecated - will be in final report)
 const starScore = ref<STARScoringResult | null>(null)
 const showSTARScore = ref(false)
 
@@ -546,31 +520,14 @@ const submitAnswer = async () => {
   error.value = ''
   
   try {
-    const currentPersona = InterviewerPersonaManager.getPersona()
-    currentFeedback.value = await invoke<string>('analyze_answer', {
-      question: questions.value[currentQuestionIndex.value],
-      answer: currentAnswer.value,
-      jobDescription: jobDescription.value,
-      persona: currentPersona
-    })
-    
-    // Analyze STAR score
-    try {
-      starScore.value = await analyzeSTARScore(currentAnswer.value)
-      showSTARScore.value = true
-    } catch (starErr) {
-      console.error('STAR analysis failed:', starErr)
-      showSTARScore.value = false
-    }
-    
-    // Save answer to database if session exists
+    // Save answer to database if session exists (no immediate analysis)
     if (currentSessionId.value) {
       await saveAnswer(
         currentSessionId.value,
         currentQuestionIndex.value,
         questions.value[currentQuestionIndex.value],
         currentAnswer.value,
-        currentFeedback.value
+        '' // No feedback yet - will be in final report
       )
     }
     
@@ -578,18 +535,33 @@ const submitAnswer = async () => {
     answersHistory.value.push({
       question: questions.value[currentQuestionIndex.value],
       answer: currentAnswer.value,
-      feedback: currentFeedback.value
+      feedback: '' // Will be filled in final report
     })
     
-    currentStep.value = 'feedback'
-    
-    // Auto-play feedback with voice
-    if (voiceEnabled.value) {
-      await nextTick()
-      playFeedback()
+    // Proceed to next question or finish interview
+    if (currentQuestionIndex.value < questions.value.length - 1) {
+      // Go to next question
+      currentQuestionIndex.value++
+      currentAnswer.value = ''
+      followUpCount.value = 0
+      conversationHistory.value = []
+      
+      // Restart timer if enabled
+      if (timerRef.value) {
+        timerRef.value.reset()
+      }
+      
+      // Auto-play next question
+      if (voiceEnabled.value) {
+        await nextTick()
+        playCurrentQuestion()
+      }
+    } else {
+      // All questions answered - finish interview
+      finishInterview()
     }
   } catch (err) {
-    error.value = `分析答案失败: ${err}`
+    error.value = `保存答案失败: ${err}`
   } finally {
     isLoading.value = false
   }
@@ -611,13 +583,44 @@ const nextQuestionAfterFeedback = async () => {
   }
 }
 
-const finishInterview = () => {
-  // Show completion animation
-  showCompletionAnimation.value = true
+const finishInterview = async () => {
+  // Generate comprehensive report
+  await generateFinalReport()
+}
+
+const generateFinalReport = async () => {
+  if (!currentSessionId.value) {
+    error.value = '未找到面试会话'
+    return
+  }
+  
+  reportLoading.value = true
+  error.value = ''
+  
+  try {
+    // Show completion animation first
+    showCompletionAnimation.value = true
+    
+    // Wait for animation
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Hide animation and show report loading
+    showCompletionAnimation.value = false
+    showFinalReport.value = true
+    
+    // Generate report will be handled by ReportView component
+  } catch (err) {
+    error.value = `生成报告失败: ${err}`
+    showFinalReport.value = false
+  } finally {
+    reportLoading.value = false
+  }
 }
 
 const closeCompletionAnimation = () => {
   showCompletionAnimation.value = false
+  showFinalReport.value = false
+  reportLoading.value = false
   
   // Reset state
   currentStep.value = 'input'
@@ -629,6 +632,8 @@ const closeCompletionAnimation = () => {
   currentFeedback.value = ''
   currentSessionId.value = null
   answersHistory.value = []
+  conversationHistory.value = []
+  followUpCount.value = 0
 }
 
 /**
@@ -1150,5 +1155,74 @@ main {
   background: var(--bg-card);
   border-radius: 12px;
   min-height: 500px;
+}
+
+/* Final Report Modal */
+.report-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.report-modal {
+  background: var(--bg-card, #ffffff);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 1000px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.4s ease;
+}
+
+.report-close-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  z-index: 1;
+}
+
+.report-close-btn:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-primary, #333);
+  transform: rotate(90deg);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

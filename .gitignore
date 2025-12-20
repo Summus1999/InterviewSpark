@@ -25,3 +25,6 @@ Thumbs.db
 
 # Qoder internal rules and cache
 .qoder/
+
+# Private development notes
+BugList.md
