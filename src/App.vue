@@ -52,6 +52,9 @@
             <button @click="currentMode = 'dashboard'" :class="{ active: currentMode === 'dashboard' }" class="mode-btn">
               仪表板
             </button>
+            <button @click="currentMode = 'analysis'" :class="{ active: currentMode === 'analysis' }" class="mode-btn">
+              分析
+            </button>
             <button v-if="isDev" @click="showTest = true" class="toggle-btn">
               测试模式
             </button>
@@ -241,6 +244,48 @@
         <div v-if="currentMode === 'dashboard'">
           <Dashboard />
         </div>
+
+        <!-- Analysis Mode -->
+        <div v-if="currentMode === 'analysis'">
+          <div class="analysis-container">
+            <div class="analysis-tabs">
+              <button 
+                @click="analysisView = 'profile'" 
+                :class="{ active: analysisView === 'profile' }" 
+                class="analysis-tab-btn"
+              >
+                个人画像
+              </button>
+              <button 
+                @click="analysisView = 'recommendation'" 
+                :class="{ active: analysisView === 'recommendation' }" 
+                class="analysis-tab-btn"
+              >
+                智能推荐
+              </button>
+              <button 
+                @click="analysisView = 'best-practices'" 
+                :class="{ active: analysisView === 'best-practices' }" 
+                class="analysis-tab-btn"
+              >
+                最佳实践
+              </button>
+              <button 
+                @click="analysisView = 'industry'" 
+                :class="{ active: analysisView === 'industry' }" 
+                class="analysis-tab-btn"
+              >
+                行业对比
+              </button>
+            </div>
+            <div class="analysis-content">
+              <ProfileView v-if="analysisView === 'profile'" />
+              <RecommendationList v-if="analysisView === 'recommendation'" />
+              <BestPracticesList v-if="analysisView === 'best-practices'" />
+              <IndustryComparison v-if="analysisView === 'industry'" />
+            </div>
+          </div>
+        </div>
       </section>
     </main>
     
@@ -271,6 +316,10 @@ import TimerSettings from './components/TimerSettings.vue'
 import FollowUpSettingsComp from './components/FollowUpSettings.vue'
 import FollowUpPanel from './components/FollowUpPanel.vue'
 import ConversationHistory from './components/ConversationHistory.vue'
+import ProfileView from './components/ProfileView.vue'
+import IndustryComparison from './components/IndustryComparison.vue'
+import RecommendationList from './components/RecommendationList.vue'
+import BestPracticesList from './components/BestPracticesList.vue'
 import { createSession, saveAnswer } from './services/database'
 import { tts } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager } from './services/settings'
@@ -286,7 +335,8 @@ const greeting = ref('')
 const showTest = ref(false)
 
 // Mode management
-const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard'>('interview')
+const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard' | 'analysis'>('interview')
+const analysisView = ref<'profile' | 'recommendation' | 'best-practices' | 'industry'>('profile')
 
 // Phase 2 interview variables
 const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback' | 'followup'>('input')
@@ -335,6 +385,7 @@ const modeTitle = computed(() => {
     case 'history': return '历史记录'
     case 'bank': return '题库管理'
     case 'dashboard': return '仪表板'
+    case 'analysis': return '分析'
     default: return '模拟面试'
   }
 })
@@ -981,5 +1032,52 @@ main {
   border-color: var(--accent-primary);
   color: white;
   transform: translateY(-2px);
+}
+
+/* Analysis Mode Styles */
+.analysis-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.analysis-tabs {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem;
+  background: var(--bg-card);
+  border-radius: 12px;
+}
+
+.analysis-tab-btn {
+  padding: 0.8rem 1.5rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.analysis-tab-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.analysis-tab-btn.active {
+  background: var(--accent-gradient);
+  border-color: var(--accent-primary);
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.analysis-content {
+  padding: 2rem;
+  background: var(--bg-card);
+  border-radius: 12px;
+  min-height: 500px;
 }
 </style>

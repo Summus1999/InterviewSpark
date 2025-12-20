@@ -123,8 +123,9 @@ src/                      # Vue 3 前端代码
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
   components/             # Vue 组件（33个）
-    ResumeInput.vue       # 简历输入组件
-    JobDescription.vue    # 岗位描述输入组件
+    ResumeInput.vue       # 简历输入组件（支持模板选择）
+    JobDescription.vue    # 岗位描述输入组件（支持模板选择）
+    TemplateSelector.vue  # 简历/JD模板选择器
     QuestionList.vue      # 问题列表展示组件
     InterviewHistory.vue  # 历史记录查看组件
     QuestionBank.vue      # 题库管理组件
@@ -137,9 +138,13 @@ src/                      # Vue 3 前端代码
     ThemeToggle.vue       # 主题切换组件（已废弃）
     SettingsPanel.vue     # 设置面板（主题/模型/API Key）
     TimerDisplay.vue      # 计时器显示组件
-    ProfileView.vue       # 个人画像视图
+    ProfileView.vue       # 个人面试画像（分析模式）
+    IndustryComparison.vue  # 行业水平对比（分析模式）
+    RecommendationList.vue  # 智能练习推荐（分析模式）
+    BestPracticesList.vue   # 最佳实践（分析模式）
     ...及其他辅助组件
-  composables/            # Vue Composition API
+  data/                   # 数据模块
+    templates.ts          # 简历/JD预置模板（6个简历模板+6个JD模板）
     useStreaming.ts       # 流式响应处理
     useAutoSave.ts        # 自动保存草稿
     useDataPreloader.ts   # 数据预加载
@@ -200,6 +205,7 @@ ProductionDoc.md          # 产品文档
 - **构建工具**: Vite 7.x
 - **代码规范**: ESLint + Prettier
 - **AI 能力**: 硅基流动 API，支持 6 个模型（Qwen3-8B/Qwen Plus/Qwen Max/Kimi Large/GLM-4-6v/MiniMax-M2）
+- **数据模板**: 预置6个简历模板和6个JD模板（前端/后端/产品/全栈/QA/DevOps）
 - **数据库**: SQLite + rusqlite
 - **本地存储**: IndexedDB（草稿自动保存）
 - **语音能力**: Web Speech API (TTS + ASR)
@@ -224,9 +230,13 @@ ProductionDoc.md          # 产品文档
 - **答案对比** (Phase 5): 同一问题不同时期答案对比
 - **数据备份** (Phase 5): 支持 JSON 全量导出和导入
 - **技术优化** (Phase 6):
+  - 预置模板: 6个简历模板 + 6个JD模板一键填充
+  - 计时模式: 每道题并发计时，浅色超时提示
+  - AI 追问機制: 基于第一次回答的深度追问
+  - 分析模式: 个人画像、智能练习推荐、行业对比、最佳实践
   - 设置面板: 支持主题切换、模型选择、API Key 配置
   - AI 流式输出: 打字机效果实时显示 AI 反馈
-  - API 重试机制: 指数退避策略，提升请求稳定性
+  - API 重试機制: 指数退避策略，提升请求稳定性
   - 数据预加载: Pinia 缓存常用数据，减少加载延迟
   - 草稿自动保存: IndexedDB 本地存储，防止数据丢失
   - 环境区分: 测试模式仅在开发环境显示
