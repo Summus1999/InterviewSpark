@@ -253,3 +253,39 @@ export class ApiSettingsManager {
     localStorage.removeItem(STORAGE_KEYS.API_SETTINGS)
   }
 }
+
+/**
+ * Tooltip dismissed state management
+ */
+export class TooltipManager {
+  private static DISMISSED_KEY = 'tooltip_dismissed_ids'
+
+  static isDismissed(tooltipId: string): boolean {
+    const dismissed = this.getDismissedIds()
+    return dismissed.includes(tooltipId)
+  }
+
+  static dismiss(tooltipId: string): void {
+    const dismissed = this.getDismissedIds()
+    if (!dismissed.includes(tooltipId)) {
+      dismissed.push(tooltipId)
+      localStorage.setItem(this.DISMISSED_KEY, JSON.stringify(dismissed))
+    }
+  }
+
+  static resetAll(): void {
+    localStorage.removeItem(this.DISMISSED_KEY)
+  }
+
+  private static getDismissedIds(): string[] {
+    const saved = localStorage.getItem(this.DISMISSED_KEY)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+}

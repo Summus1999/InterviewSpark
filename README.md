@@ -122,7 +122,7 @@ src/                      # Vue 3 前端代码
   App.vue                 # 主应用组件（面试流程控制）
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
-  components/             # Vue 组件（33个）
+  components/             # Vue 组件（35个）
     ResumeInput.vue       # 简历输入组件（支持模板选择）
     JobDescription.vue    # 岗位描述输入组件（支持模板选择）
     TemplateSelector.vue  # 简历/JD模板选择器
@@ -138,6 +138,8 @@ src/                      # Vue 3 前端代码
     ThemeToggle.vue       # 主题切换组件（已废弃）
     SettingsPanel.vue     # 设置面板（主题/模型/API Key）
     TimerDisplay.vue      # 计时器显示组件
+    OnboardingGuide.vue   # 首次使用引导组件
+    TooltipBubble.vue     # 通用提示气泡组件
     ProfileView.vue       # 个人面试画像（分析模式）
     IndustryComparison.vue  # 行业水平对比（分析模式）
     RecommendationList.vue  # 智能练习推荐（分析模式）
@@ -234,6 +236,8 @@ ProductionDoc.md          # 产品文档
   - 计时模式: 每道题并发计时，浅色超时提示
   - AI 追问機制: 基于第一次回答的深度追问
   - 分析模式: 个人画像、智能练习推荐、行业对比、最佳实践
+  - 首次引导: 5步交互式引导，降低上手门槛
+  - 提示气泡: 关键步骤智能提示，支持"不再显示"
   - 设置面板: 支持主题切换、模型选择、API Key 配置
   - AI 流式输出: 打字机效果实时显示 AI 反馈
   - API 重试機制: 指数退避策略，提升请求稳定性

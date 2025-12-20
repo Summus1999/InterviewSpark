@@ -59,6 +59,9 @@
         </div>
 
         <div class="settings-actions">
+          <button @click="handleResetOnboarding" class="reset-onboarding-btn">
+            重置引导教程
+          </button>
           <button @click="handleSave" class="save-btn">
             保存设置
           </button>
@@ -70,7 +73,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { ThemeManager, ApiSettingsManager, AVAILABLE_MODELS, type Theme, type ApiSettings } from '../services/settings'
+import { ThemeManager, ApiSettingsManager, OnboardingManager, AVAILABLE_MODELS, type Theme, type ApiSettings } from '../services/settings'
 import { invoke } from '@tauri-apps/api/core'
 
 const showPanel = ref(false)
@@ -132,6 +135,14 @@ async function handleSave() {
   } catch (error) {
     console.error('Failed to save settings:', error)
     alert('保存失败：' + String(error))
+  }
+}
+
+function handleResetOnboarding() {
+  if (confirm('确定要重置引导教程吗？下次启动应用时将重新显示引导。')) {
+    OnboardingManager.reset()
+    alert('引导教程已重置，请刷新页面查看')
+    showPanel.value = false
   }
 }
 </script>
@@ -252,8 +263,27 @@ async function handleSave() {
 
 .settings-actions {
   display: flex;
+  gap: 0.8rem;
   justify-content: center;
   margin-top: 1rem;
+}
+
+.reset-onboarding-btn {
+  padding: 0.7rem 1.5rem;
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #333);
+  border: 2px solid var(--border-light, #ddd);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.reset-onboarding-btn:hover {
+  background: var(--bg-hover, #ebebeb);
+  border-color: var(--accent-primary, #667eea);
+  color: var(--accent-primary, #667eea);
 }
 
 .save-btn {

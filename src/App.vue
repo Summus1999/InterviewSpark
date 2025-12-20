@@ -70,9 +70,15 @@
             
             <!-- Timer Settings -->
             <div class="timer-settings-section">
-              <button @click="toggleTimerSettings" class="settings-toggle-btn">
-                ⏱️ {{ showTimerSettings ? '隐藏' : '显示' }}计时设置
-              </button>
+              <TooltipBubble
+                content="开启计时模式，模拟真实面试时间压力"
+                tooltip-id="timer-settings-tip"
+                position="bottom"
+              >
+                <button @click="toggleTimerSettings" class="settings-toggle-btn">
+                  ⏱️ {{ showTimerSettings ? '隐藏' : '显示' }}计时设置
+                </button>
+              </TooltipBubble>
               <TimerSettings 
                 v-if="showTimerSettings"
                 v-model="timerSettings"
@@ -82,9 +88,15 @@
             
             <!-- Follow-up Settings -->
             <div class="followup-settings-section">
-              <button @click="toggleFollowUpSettings" class="settings-toggle-btn">
-                🔄 {{ showFollowUpSettings ? '隐藏' : '显示' }}追问设置
-              </button>
+              <TooltipBubble
+                content="开启追问模式，AI 会根据你的回答追问细节"
+                tooltip-id="followup-settings-tip"
+                position="bottom"
+              >
+                <button @click="toggleFollowUpSettings" class="settings-toggle-btn">
+                  🔄 {{ showFollowUpSettings ? '隐藏' : '显示' }}追问设置
+                </button>
+              </TooltipBubble>
               <FollowUpSettingsComp 
                 v-if="showFollowUpSettings"
                 v-model="followUpSettings"
@@ -93,13 +105,19 @@
             </div>
             
             <div class="action-buttons">
-              <button 
-                @click="generateQuestions" 
-                :disabled="!canGenerate || isLoading"
-                class="primary-btn"
+              <TooltipBubble
+                content="基于简历和 JD 生成个性化面试问题"
+                tooltip-id="generate-questions-tip"
+                position="top"
               >
-                {{ isLoading ? '生成中...' : '生成面试问题' }}
-              </button>
+                <button 
+                  @click="generateQuestions" 
+                  :disabled="!canGenerate || isLoading"
+                  class="primary-btn"
+                >
+                  {{ isLoading ? '生成中...' : '生成面试问题' }}
+                </button>
+              </TooltipBubble>
             </div>
             
             <p v-if="error" class="error-message">{{ error }}</p>
@@ -295,6 +313,13 @@
       :message="`完成了 ${answersHistory.length} 个问题的回答，继续加油！`"
       @close="closeCompletionAnimation"
     />
+    
+    <!-- Onboarding Guide -->
+    <OnboardingGuide 
+      :show="showOnboarding"
+      @complete="handleOnboardingComplete"
+      @skip="handleOnboardingSkip"
+    />
   </div>
 </template>
 
@@ -320,9 +345,11 @@ import ProfileView from './components/ProfileView.vue'
 import IndustryComparison from './components/IndustryComparison.vue'
 import RecommendationList from './components/RecommendationList.vue'
 import BestPracticesList from './components/BestPracticesList.vue'
+import OnboardingGuide from './components/OnboardingGuide.vue'
+import TooltipBubble from './components/TooltipBubble.vue'
 import { createSession, saveAnswer } from './services/database'
 import { tts } from './services/voice'
-import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager } from './services/settings'
+import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
 import { DEFAULT_FOLLOWUP_SETTINGS } from './types/follow-up'
 
@@ -370,6 +397,9 @@ const showFollowUpSettings = ref(false)
 const conversationHistory = ref<ConversationTurn[]>([])
 const followUpAnalysis = ref<FollowUpAnalysis | null>(null)
 const followUpCount = ref(0)  // Track how many follow-ups for current question
+
+// Onboarding state
+const showOnboarding = ref(!OnboardingManager.isCompleted())
 
 const canGenerate = computed(() => {
   return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
@@ -702,6 +732,22 @@ const proceedToNextQuestion = () => {
 
 const clearConversationHistory = () => {
   conversationHistory.value = []
+}
+
+/**
+ * Handle onboarding completion
+ */
+const handleOnboardingComplete = () => {
+  OnboardingManager.markCompleted()
+  showOnboarding.value = false
+}
+
+/**
+ * Handle onboarding skip
+ */
+const handleOnboardingSkip = () => {
+  OnboardingManager.markCompleted()
+  showOnboarding.value = false
 }
 </script>
 
