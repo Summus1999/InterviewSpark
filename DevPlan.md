@@ -49,6 +49,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 **测试日期**: 2025-12-18
 
 **测试项目**:
+
 1. ✅ 前端构建成功 (vite build - 566ms)
 2. ✅ Rust 编译成功 (cargo build - 29.97s)
 3. ✅ 应用启动正常 (npm run tauri:dev)
@@ -105,6 +106,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 **实现日期**: 2025-12-19
 
 **完成内容**:
+
 1. ✅ Rust 后端 API 封装 (SiliconFlowClient)
 2. ✅ 环境变量配置 (.env 支持)
 3. ✅ Tauri 命令暴露 (generate_questions, analyze_answer)
@@ -115,6 +117,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 8. ✅ 调试日志系统（便于问题排查）
 
 **测试验证**:
+
 - ✅ 问题生成功能正常（基于简历和 JD 生成 5 个问题）
 - ✅ 答案分析功能正常（AI 反馈准确且详细）
 - ✅ 完整面试流程测试通过（输入 → 生成 → 回答 → 反馈）
@@ -177,6 +180,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 **实现日期**: 2025-12-19
 
 **完成内容**:
+
 1. ✅ Rust 后端数据库层 (db/mod.rs, models.rs, schema.rs, repository.rs)
 2. ✅ SQLite 数据库初始化（存储于 data/interview_spark.db）
 3. ✅ 6 张表结构定义和创建
@@ -190,6 +194,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 11. ✅ 解决数据库文件变化触发重编译问题
 
 **测试验证**:
+
 - ✅ 面试会话创建和保存功能正常
 - ✅ 答题记录自动保存到数据库
 - ✅ 历史记录页面查看功能正常
@@ -212,6 +217,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 ### 核心愿景
 
 **AI 面试官语音发问**: 本阶段的核心目标是将应用打造成一个真正的 AI 面试官，能够通过语音向用户发问。用户启动应用后，将体验与真实面试类似的场景：
+
 - AI 面试官语音播报面试问题
 - 用户语音回答，系统实时识别
 - AI 面试官语音给出反馈和追问
@@ -258,10 +264,12 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 **实现日期**: 2025-12-19
 
 **技术方案调整**:
+
 - 原计划使用 SenseVoice + Piper TTS 本地模型
 - 实际采用 Web Speech API 方案（更轻量、无需模型下载）
 
 **完成内容**:
+
 1. ✅ 创建语音服务层 (services/voice.ts)
    - TextToSpeech 类：语音合成
    - SpeechToText 类：语音识别
@@ -277,12 +285,14 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 5. ✅ 应用运行测试通过
 
 **测试验证**:
+
 - ✅ 语音合成功能正常（自动播报问题和反馈）
 - ✅ 语音识别功能正常（识别结果填入答题框）
 - ✅ 语音设置功能正常（语速、音量可调）
 - ✅ 完整语音面试流程测试通过
 
 **注意事项**:
+
 - 需要浏览器支持 Web Speech API（Chrome、Edge 推荐）
 - 首次使用需授予麦克风权限
 - 语音识别需要网络连接
@@ -455,6 +465,7 @@ InterviewSpark 是一款 AI 驱动的 Windows 桌面应用，帮助求职者通�
 **完成内容**:
 
 **模块 1: 多维度分析引擎**
+
 - 新增 `AnswerAnalysis`, `SessionReport`, `PerformanceStats` 数据模型
 - 创建 `analysis/` 模块目录（mod.rs, content.rs, scoring.rs）
 - 实现 `ContentAnalyzer` 内容分析器
@@ -859,6 +870,7 @@ Phase 5.5 (多用户与活跃度系统)
   - 为未来功能扩展预留接口
 
 **实施优先级**:
+
 1. 🔥 API 重试机制（高优先级） ✅ 已完成
 2. 🔥 AI 流式输出（高优先级） ✅ 已完成
 3. ⭐ 自动保存草稿（中优先级） ✅ 已完成
@@ -868,6 +880,8 @@ Phase 5.5 (多用户与活跃度系统)
 
 ### 实施检查清单
 
+```
+```
 ```
 模块 2 高优先级（优先实施）:
 1.  [x] 实现计时模式（倒计时 + 进度条） ✅
@@ -957,6 +971,7 @@ npm run build:release
 ```
 
 **构建产物**:
+
 - NSIS 安装包: `src-tauri/target/release/bundle/nsis/InterviewSpark_1.0.0_x64-setup.exe`
 - 独立 exe（build:dev/test）: `src-tauri/target/release/app.exe` 或 `target/debug/app.exe`
 

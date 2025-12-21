@@ -8,4 +8,5 @@ pub mod siliconflow;
 pub mod retry;
 
 pub use siliconflow::SiliconFlowClient;
+#[allow(unused_imports)]
 pub use retry::RetryPolicy;

@@ -129,15 +129,6 @@ pub struct QuestionTag {
     pub created_at: String,
 }
 
-/// Question tag mapping entity
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TagMapping {
-    pub id: Option<i64>,
-    pub question_bank_id: i64,
-    pub tag_id: i64,
-    pub created_at: String,
-}
-
 /// Interview profile dimension scores
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileDimension {

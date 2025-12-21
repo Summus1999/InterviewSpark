@@ -12,6 +12,7 @@ mod analysis;
 
 use api::SiliconFlowClient;
 use api::siliconflow::SiliconFlowClient as SFClient;
+#[allow(unused_imports)]
 use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult, User, QuestionBestAnswer};
 use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
 use futures::StreamExt;
@@ -936,7 +937,7 @@ async fn get_or_generate_best_answer(
 #[tauri::command]
 async fn get_comparison_with_best_answer(
     question: String,
-    job_description: String,
+    _job_description: String,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     // Get history comparison

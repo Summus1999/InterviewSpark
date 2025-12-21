@@ -103,6 +103,7 @@ impl ScoringEngine {
     }
 
     /// Calculate with expression score
+    #[allow(dead_code)]
     pub fn calculate_score_with_expression(
         content_analysis: &ContentAnalysisResult,
         expression_score: f32,

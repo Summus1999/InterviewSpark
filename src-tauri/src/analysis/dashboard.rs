@@ -67,7 +67,7 @@ impl DashboardService {
         
         // Calculate recent improvement (compare last 5 to first 5)
         let recent_improvement = if total_sessions >= 5 {
-            let (_, avg_overall, _, improvement_rate, _) = 
+            let (_, _, _, improvement_rate, _) = 
                 self.db.get_statistics(None)?;
             improvement_rate
         } else {

@@ -22,6 +22,7 @@ pub struct ReportGenerator;
 
 impl ReportGenerator {
     /// Generate comprehensive report for a session
+    #[allow(dead_code)]
     pub async fn generate_report(
         session_id: i64,
         api_client: &SiliconFlowClient,

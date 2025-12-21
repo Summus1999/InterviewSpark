@@ -5,7 +5,7 @@
 ## 环境要求
 
 - Node.js >= 18
-- Rust >= 1.77 (安装方法: https://www.rust-lang.org/tools/install)
+- Rust >= 1.77 (安装方法: <https://www.rust-lang.org/tools/install>)
 - 系统依赖:
   - Windows: Microsoft Visual Studio C++ Build Tools
   - WebView2 (Windows 10/11 自带)
@@ -20,7 +20,7 @@ npm install
 
 **重要**：使用 AI 面试功能需要配置硅基流动 API。
 
-1. 注册硅基流动账号：https://cloud.siliconflow.cn
+1. 注册硅基流动账号：<https://cloud.siliconflow.cn>
 2. 获取 API Key
 3. 复制 `.env.example` 为 `.env`：
    ```bash
@@ -34,7 +34,7 @@ npm install
 ## 开发
 
 ```bash
-# 仅运行前端开发服务器 (http://localhost:5173)
+# 仅运行前端开发服务器 (<http://localhost:5173>)
 npm run dev
 
 # 运行完整 Tauri 应用 (推荐)
@@ -143,9 +143,9 @@ npm run release
 
 **NSIS 离线安装**:
 - 下载以下文件:
-  - https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip
-  - https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.1.1/nsis_tauri_utils.dll
-  - https://github.com/tauri-apps/binary-releases/releases/download/nsis-plugins-v0/NSIS-ApplicationID.zip
+  - <https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip>
+  - <https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.1.1/nsis_tauri_utils.dll>
+  - <https://github.com/tauri-apps/binary-releases/releases/download/nsis-plugins-v0/NSIS-ApplicationID.zip>
 - 解压 nsis-3.zip 到: `C:\Users\{用户名}\AppData\Local\tauri\NSIS`
 - 复制 nsis_tauri_utils.dll 和 ApplicationID.dll 到: `NSIS\Plugins\x86-unicode`
 

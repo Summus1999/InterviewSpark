@@ -20,12 +20,24 @@ pub mod best_practices;
 pub mod industry;
 
 pub use content::ContentAnalyzer;
+// STAR types are part of the public API and used by frontend via Tauri commands
+#[allow(unused_imports)]
 pub use scoring::{ScoringEngine, STARScoringEngine, STARScoringResult, STARScoreBreakdown};
+// Report types are part of the public API
+#[allow(unused_imports)]
 pub use report::ReportGenerator;
+// Report types are part of the public API
+#[allow(unused_imports)]
 pub use export::ReportExporter;
+// Analytics types are part of the public API
+#[allow(unused_imports)]
 pub use analytics::{AnalyticsEngine, TrendAnalytics, TrendDataPoint, PerformanceStatistics};
 pub use dashboard::{DashboardService, DashboardData};
+// Backup types are part of the public API
+#[allow(unused_imports)]
 pub use backup::{BackupManager, BackupData};
+// Cache types are part of the public API
+#[allow(unused_imports)]
 pub use cache::{CacheManager, CacheEntry};
 pub use profile::ProfileGenerator;
 pub use recommendation::RecommendationEngine;

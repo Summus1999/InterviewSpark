@@ -146,6 +146,7 @@ impl SiliconFlowClient {
     }
 
     /// Update client configuration
+    #[allow(dead_code)]
     pub fn update_config(&mut self, api_key: String, model: String) {
         self.api_key = api_key;
         self.model = model;
@@ -364,6 +365,7 @@ impl SiliconFlowClient {
     }
 
     /// Generate comprehensive interview report
+    #[allow(dead_code)]
     pub async fn generate_session_report(
         &self,
         questions: &[String],

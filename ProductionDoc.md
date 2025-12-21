@@ -181,6 +181,7 @@
 - **语音合成**：Web Speech API - 浏览器原生TTS，音质自然，支持语速和音量调节
 
 **技术方案说明**：
+
 - 原计划使用 SenseVoice（本地）+ Piper TTS（本地）方案
 - 实际采用 Web Speech API 方案，优势：
   - 轻量级，无需下载大模型文件

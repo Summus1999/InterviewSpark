@@ -3,7 +3,9 @@
 //! Implements exponential backoff retry policy for handling transient failures
 
 use anyhow::Result;
+#[allow(unused_imports)]
 use std::cell::RefCell;
+#[allow(unused_imports)]
 use std::rc::Rc;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -75,6 +77,7 @@ impl RetryPolicy {
     }
 
     /// Check if an error is retryable
+    #[allow(dead_code)]
     pub fn is_retryable(error: &anyhow::Error) -> bool {
         let error_str = error.to_string().to_lowercase();
         

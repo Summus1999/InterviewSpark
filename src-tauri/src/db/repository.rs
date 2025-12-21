@@ -1312,6 +1312,7 @@ impl Repository {
     }
 
     /// Get count of answers for a specific question
+    #[allow(dead_code)]
     pub fn get_answer_count_for_question(&self, question: &str) -> Result<i32> {
         let conn = self.conn.lock().unwrap();
         let count: i32 = conn
