@@ -451,12 +451,20 @@ const generateQuestions = async () => {
   
   try {
     const currentPersona = InterviewerPersonaManager.getPersona()
-    questions.value = await invoke<string[]>('generate_questions', {
+    const aiQuestions = await invoke<string[]>('generate_questions', {
       resume: resume.value,
       jobDescription: jobDescription.value,
       count: 5,
       persona: currentPersona
     })
+    
+    // Add fixed opening and closing questions
+    questions.value = [
+      '请你做一下自我介绍',
+      ...aiQuestions,
+      '那你还有什么想要问我的吗'
+    ]
+    
     currentStep.value = 'questions'
     currentQuestionIndex.value = 0
   } catch (err) {
