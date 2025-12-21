@@ -1226,4 +1226,121 @@ impl Repository {
         
         Ok(())
     }
+
+    // ===== Question Best Answer Operations =====
+
+    /// Get best answer by question hash
+    pub fn get_best_answer_by_hash(&self, question_hash: &str) -> Result<Option<QuestionBestAnswer>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, question_hash, question_text, generated_answer, source_answer_count, \
+             version, needs_update, job_context, created_at, updated_at \
+             FROM question_best_answers WHERE question_hash = ?1"
+        )?;
+        
+        let answer = stmt
+            .query_row(params![question_hash], |row| {
+                Ok(QuestionBestAnswer {
+                    id: Some(row.get(0)?),
+                    question_hash: row.get(1)?,
+                    question_text: row.get(2)?,
+                    generated_answer: row.get(3)?,
+                    source_answer_count: row.get(4)?,
+                    version: row.get(5)?,
+                    needs_update: row.get::<_, i32>(6)? != 0,
+                    job_context: row.get(7)?,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
+                })
+            })
+            .optional()?;
+        
+        Ok(answer)
+    }
+
+    /// Insert or update best answer
+    pub fn upsert_best_answer(
+        &self,
+        question_hash: &str,
+        question_text: &str,
+        generated_answer: &str,
+        source_answer_count: i32,
+        job_context: Option<&str>,
+    ) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let timestamp = now();
+        
+        // Check if exists
+        let existing: Option<(i64, i32)> = conn
+            .query_row(
+                "SELECT id, version FROM question_best_answers WHERE question_hash = ?1",
+                params![question_hash],
+                |row| Ok((row.get(0)?, row.get(1)?))
+            )
+            .optional()?;
+        
+        if let Some((id, version)) = existing {
+            // Update existing
+            conn.execute(
+                "UPDATE question_best_answers SET \
+                 generated_answer = ?1, source_answer_count = ?2, version = ?3, \
+                 needs_update = 0, job_context = ?4, updated_at = ?5 \
+                 WHERE id = ?6",
+                params![generated_answer, source_answer_count, version + 1, job_context, timestamp, id],
+            )?;
+            Ok(id)
+        } else {
+            // Insert new
+            conn.execute(
+                "INSERT INTO question_best_answers \
+                 (question_hash, question_text, generated_answer, source_answer_count, version, needs_update, job_context, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, ?4, 1, 0, ?5, ?6, ?7)",
+                params![question_hash, question_text, generated_answer, source_answer_count, job_context, timestamp, timestamp],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }
+    }
+
+    /// Mark question's best answer as needing update
+    pub fn mark_answer_needs_update(&self, question_hash: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let rows_affected = conn.execute(
+            "UPDATE question_best_answers SET needs_update = 1 WHERE question_hash = ?1",
+            params![question_hash],
+        )?;
+        Ok(rows_affected > 0)
+    }
+
+    /// Get count of answers for a specific question
+    pub fn get_answer_count_for_question(&self, question: &str) -> Result<i32> {
+        let conn = self.conn.lock().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM interview_answers WHERE question = ?1",
+                params![question],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        Ok(count)
+    }
+
+    /// Get all answers for a specific question (for generating best answer)
+    pub fn get_all_answers_for_question(&self, question: &str) -> Result<Vec<(String, f32)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT ia.answer, COALESCE(aa.overall_score, 0) as score \
+             FROM interview_answers ia \
+             LEFT JOIN answer_analysis aa ON ia.id = aa.answer_id \
+             WHERE ia.question = ?1 \
+             ORDER BY score DESC"
+        )?;
+        
+        let results = stmt
+            .query_map(params![question], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(results)
+    }
 }

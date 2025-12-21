@@ -156,6 +156,20 @@ CREATE TABLE IF NOT EXISTS performance_stats (
     recorded_at TEXT NOT NULL
 );
 
+-- Question best answers table (AI-generated optimal answers)
+CREATE TABLE IF NOT EXISTS question_best_answers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_hash TEXT NOT NULL UNIQUE,
+    question_text TEXT NOT NULL,
+    generated_answer TEXT NOT NULL,
+    source_answer_count INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 1,
+    needs_update INTEGER NOT NULL DEFAULT 0,
+    job_context TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 -- Create indices for performance optimization
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
@@ -170,6 +184,8 @@ CREATE INDEX IF NOT EXISTS idx_interview_answers_session_id ON interview_answers
 CREATE INDEX IF NOT EXISTS idx_interview_sessions_created_at ON interview_sessions(created_at);
 CREATE INDEX IF NOT EXISTS idx_tag_mappings_question_id ON question_tag_mappings(question_bank_id);
 CREATE INDEX IF NOT EXISTS idx_tag_mappings_tag_id ON question_tag_mappings(tag_id);
+CREATE INDEX IF NOT EXISTS idx_qba_hash ON question_best_answers(question_hash);
+CREATE INDEX IF NOT EXISTS idx_qba_needs_update ON question_best_answers(needs_update);
 "#;
 
 /// Check if a column exists in a table

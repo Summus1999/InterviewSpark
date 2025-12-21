@@ -349,6 +349,55 @@ export async function getAnswersComparison(
   }))
 }
 
+// Best answer types and operations
+export interface QuestionBestAnswer {
+  id: number | null
+  question_hash: string
+  question_text: string
+  generated_answer: string
+  source_answer_count: number
+  version: number
+  needs_update: boolean
+  job_context: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ComparisonWithBestAnswer {
+  history: AnswerComparisonItem[]
+  bestAnswer: QuestionBestAnswer | null
+  needsGeneration: boolean
+}
+
+export async function markBestAnswerNeedsUpdate(
+  question: string
+): Promise<boolean> {
+  return await invoke('mark_best_answer_needs_update', { question })
+}
+
+export async function getOrGenerateBestAnswer(
+  question: string,
+  jobDescription: string
+): Promise<QuestionBestAnswer> {
+  return await invoke('get_or_generate_best_answer', { question, jobDescription })
+}
+
+export async function getComparisonWithBestAnswer(
+  question: string,
+  jobDescription: string
+): Promise<ComparisonWithBestAnswer> {
+  return await invoke('get_comparison_with_best_answer', { question, jobDescription })
+}
+
+/**
+ * Transcribe audio to text using SiliconFlow API
+ * @param audioBase64 - Base64 encoded audio data
+ * @returns Transcribed text
+ */
+export async function transcribeAudio(audioBase64: string): Promise<string> {
+  return await invoke('transcribe_audio', { audioBase64 })
+}
+
 export async function deleteSession(sessionId: number): Promise<void> {
   return await invoke('delete_session', { sessionId })
 }

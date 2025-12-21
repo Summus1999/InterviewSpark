@@ -340,7 +340,7 @@ import OnboardingGuide from './components/OnboardingGuide.vue'
 import TooltipBubble from './components/TooltipBubble.vue'
 import STARScoreDisplay from './components/STARScoreDisplay.vue'
 import ActivityView from './components/ActivityView.vue'
-import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, type STARScoringResult } from './services/database'
+import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, markBestAnswerNeedsUpdate, type STARScoringResult } from './services/database'
 import { tts, stt } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
@@ -579,6 +579,14 @@ const submitAnswer = async () => {
       } catch (analysisErr) {
         // Non-critical error - log but don't block user flow
         console.error('Failed to analyze answer:', analysisErr)
+      }
+      
+      // Mark best answer as needing update for this question
+      try {
+        await markBestAnswerNeedsUpdate(questions.value[currentQuestionIndex.value])
+      } catch (markErr) {
+        // Non-critical error
+        console.error('Failed to mark best answer for update:', markErr)
       }
     }
     

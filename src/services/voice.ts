@@ -261,3 +261,114 @@ export class SpeechToText {
 // Export singleton instances
 export const tts = new TextToSpeech()
 export const stt = SpeechToText.isSupported() ? new SpeechToText() : null
+
+/**
+ * Audio Recorder using MediaRecorder API
+ * Records audio and converts to base64 for API transcription
+ */
+export class AudioRecorder {
+  private mediaRecorder: MediaRecorder | null = null
+  private audioChunks: Blob[] = []
+  private stream: MediaStream | null = null
+  private _isRecording = false
+
+  /**
+   * Check if MediaRecorder is supported
+   */
+  static isSupported(): boolean {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)
+  }
+
+  /**
+   * Start recording audio
+   */
+  async start(): Promise<void> {
+    if (this._isRecording) {
+      return
+    }
+
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // Prefer webm format for better compatibility
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
+        ? 'audio/webm' 
+        : 'audio/mp4'
+      
+      this.mediaRecorder = new MediaRecorder(this.stream, { mimeType })
+      this.audioChunks = []
+      
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data)
+        }
+      }
+      
+      this.mediaRecorder.start(100) // Collect data every 100ms
+      this._isRecording = true
+    } catch (error) {
+      console.error('Failed to start audio recording:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Stop recording and return audio blob
+   */
+  async stop(): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder || !this._isRecording) {
+        reject(new Error('Not recording'))
+        return
+      }
+
+      this.mediaRecorder.onstop = () => {
+        const mimeType = this.mediaRecorder?.mimeType || 'audio/webm'
+        const audioBlob = new Blob(this.audioChunks, { type: mimeType })
+        
+        // Stop all tracks
+        if (this.stream) {
+          this.stream.getTracks().forEach(track => track.stop())
+          this.stream = null
+        }
+        
+        this._isRecording = false
+        resolve(audioBlob)
+      }
+
+      this.mediaRecorder.onerror = (event) => {
+        this._isRecording = false
+        reject(event)
+      }
+
+      this.mediaRecorder.stop()
+    })
+  }
+
+  /**
+   * Check if currently recording
+   */
+  isRecording(): boolean {
+    return this._isRecording
+  }
+
+  /**
+   * Convert blob to base64 string
+   */
+  static async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64 = reader.result as string
+        // Remove data URL prefix (e.g., "data:audio/webm;base64,")
+        const base64Data = base64.split(',')[1]
+        resolve(base64Data)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }
+}
+
+// Export singleton recorder instance
+export const audioRecorder = AudioRecorder.isSupported() ? new AudioRecorder() : null

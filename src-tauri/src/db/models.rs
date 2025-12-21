@@ -222,6 +222,21 @@ pub struct IndustryComparisonResult {
     pub generated_at: String,
 }
 
+/// AI-generated best answer for a question
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuestionBestAnswer {
+    pub id: Option<i64>,
+    pub question_hash: String,
+    pub question_text: String,
+    pub generated_answer: String,
+    pub source_answer_count: i32,
+    pub version: i32,
+    pub needs_update: bool,
+    pub job_context: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// Helper function to get current timestamp as ISO 8601 string
 pub fn now() -> String {
     Utc::now().to_rfc3339()

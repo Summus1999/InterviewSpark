@@ -11,53 +11,86 @@
     </div>
 
     <div v-else-if="error" class="error">
-      <p>⚠️ {{ error }}</p>
+      <p>{{ error }}</p>
     </div>
 
-    <div v-else-if="comparisonData.length === 0" class="empty-state">
-      <p>暂无该问题的历史记录</p>
-    </div>
-
-    <div v-else class="comparison-timeline">
-      <div
-        v-for="(item, index) in comparisonData"
-        :key="index"
-        class="comparison-item"
-      >
-        <div class="timeline-marker">
-          <div class="dot"></div>
-          <div v-if="index < comparisonData.length - 1" class="line"></div>
+    <div v-else class="comparison-content">
+      <!-- Best Answer Section -->
+      <div class="best-answer-section">
+        <div class="section-header">
+          <h3>AI 优秀答案参考</h3>
+          <div v-if="bestAnswer" class="version-info">
+            <span class="version-badge">V{{ bestAnswer.version }}</span>
+            <span class="source-count">基于 {{ bestAnswer.source_answer_count }} 次回答</span>
+          </div>
         </div>
-
-        <div class="item-content">
-          <div class="item-header">
-            <div class="meta">
-              <span class="timestamp">{{ formatDate(item.timestamp) }}</span>
-              <span class="score-badge" :class="getScoreClass(parseFloat(item.score))">
-                评分: {{ item.score }}
-              </span>
-            </div>
+        
+        <div v-if="generatingBestAnswer" class="generating">
+          <div class="spinner-small"></div>
+          <span>正在生成优秀答案...</span>
+        </div>
+        
+        <div v-else-if="bestAnswer" class="best-answer-content">
+          <div class="text-content best-text">{{ bestAnswer.generated_answer }}</div>
+          <div class="update-time">
+            更新于 {{ formatDate(bestAnswer.updated_at) }}
           </div>
-
-          <div class="answer-section">
-            <h4>你的回答</h4>
-            <div class="text-content">{{ item.answer }}</div>
-          </div>
-
-          <div class="feedback-section">
-            <h4>反馈</h4>
-            <div class="text-content">{{ item.feedback }}</div>
-          </div>
+        </div>
+        
+        <div v-else class="no-best-answer">
+          <button @click="generateBestAnswer" class="generate-btn" :disabled="generatingBestAnswer">
+            生成优秀答案
+          </button>
         </div>
       </div>
 
-      <div class="progress-indicator">
-        <p class="progress-text">
-          已对比 {{ comparisonData.length }} 次尝试
-          <span v-if="comparisonData.length > 1" class="improvement">
-            最早评分: {{ getLowestScore() }} → 最近评分: {{ getHighestScore() }}
-          </span>
-        </p>
+      <!-- History Timeline -->
+      <div v-if="comparisonData.length === 0" class="empty-state">
+        <p>暂无该问题的历史记录</p>
+      </div>
+
+      <div v-else class="comparison-timeline">
+        <h3 class="timeline-title">历史回答记录</h3>
+        <div
+          v-for="(item, index) in comparisonData"
+          :key="index"
+          class="comparison-item"
+        >
+          <div class="timeline-marker">
+            <div class="dot"></div>
+            <div v-if="index < comparisonData.length - 1" class="line"></div>
+          </div>
+
+          <div class="item-content">
+            <div class="item-header">
+              <div class="meta">
+                <span class="timestamp">{{ formatDate(item.timestamp) }}</span>
+                <span class="score-badge" :class="getScoreClass(parseFloat(item.score))">
+                  评分: {{ item.score }}
+                </span>
+              </div>
+            </div>
+
+            <div class="answer-section">
+              <h4>你的回答</h4>
+              <div class="text-content">{{ item.answer }}</div>
+            </div>
+
+            <div class="feedback-section">
+              <h4>反馈</h4>
+              <div class="text-content">{{ item.feedback }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-indicator">
+          <p class="progress-text">
+            已对比 {{ comparisonData.length }} 次尝试
+            <span v-if="comparisonData.length > 1" class="improvement">
+              最早评分: {{ getLowestScore() }} -> 最近评分: {{ getHighestScore() }}
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -65,16 +98,26 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getAnswersComparison, type AnswerComparisonItem } from '../services/database'
+import { 
+  getAnswersComparison, 
+  getOrGenerateBestAnswer,
+  type AnswerComparisonItem,
+  type QuestionBestAnswer
+} from '../services/database'
 
 interface Props {
   question: string
+  jobDescription?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  jobDescription: ''
+})
 
 const comparisonData = ref<AnswerComparisonItem[]>([])
+const bestAnswer = ref<QuestionBestAnswer | null>(null)
 const loading = ref(false)
+const generatingBestAnswer = ref(false)
 const error = ref<string | null>(null)
 
 onMounted(async () => {
@@ -85,11 +128,31 @@ const loadComparison = async () => {
   loading.value = true
   error.value = null
   try {
+    // Load history data
     comparisonData.value = await getAnswersComparison(props.question)
+    
+    // Try to get cached best answer (non-blocking)
+    try {
+      bestAnswer.value = await getOrGenerateBestAnswer(props.question, props.jobDescription)
+    } catch {
+      // Best answer generation failed, but history is still available
+      bestAnswer.value = null
+    }
   } catch (err: any) {
-    error.value = err?.message || '加载对比数据失败'
+    error.value = err?.message || 'Failed to load comparison data'
   } finally {
     loading.value = false
+  }
+}
+
+const generateBestAnswer = async () => {
+  generatingBestAnswer.value = true
+  try {
+    bestAnswer.value = await getOrGenerateBestAnswer(props.question, props.jobDescription)
+  } catch (err: any) {
+    console.error('Failed to generate best answer:', err)
+  } finally {
+    generatingBestAnswer.value = false
   }
 }
 
@@ -174,6 +237,15 @@ const getHighestScore = (): string => {
   animation: spin 1s linear infinite;
 }
 
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -194,15 +266,124 @@ const getHighestScore = (): string => {
   font-size: 14px;
 }
 
+.comparison-content {
+  padding: 24px;
+}
+
+/* Best Answer Section */
+.best-answer-section {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #059669;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-badge {
+  background: #059669;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.source-count {
+  font-size: 12px;
+  color: #666;
+}
+
+.generating {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  color: #666;
+}
+
+.best-answer-content {
+  position: relative;
+}
+
+.best-text {
+  background: white;
+  padding: 16px;
+  border-radius: 6px;
+  border-left: 3px solid #10b981;
+}
+
+.update-time {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+  text-align: right;
+}
+
+.no-best-answer {
+  text-align: center;
+  padding: 16px;
+}
+
+.generate-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.generate-btn:hover {
+  opacity: 0.9;
+}
+
+.generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .empty-state {
-  padding: 60px 20px;
+  padding: 40px 20px;
   text-align: center;
   color: #999;
   font-size: 16px;
 }
 
+.timeline-title {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
 .comparison-timeline {
-  padding: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .comparison-item {

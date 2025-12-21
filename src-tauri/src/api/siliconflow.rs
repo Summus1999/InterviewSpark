@@ -45,6 +45,12 @@ struct Choice {
     message: ChatMessage,
 }
 
+/// Audio transcription response
+#[derive(Debug, Deserialize)]
+pub struct TranscriptionResponse {
+    pub text: String,
+}
+
 /// Extract JSON array from response text
 /// Supports both pure JSON and text with embedded JSON
 fn extract_json_array(text: &str) -> Result<Vec<String>> {
@@ -469,6 +475,102 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanations.
         ];
 
         self.chat_completion(messages, Some(0.7), Some(2000)).await
+    }
+
+    /// Generate best answer for a question
+    /// If historical_answers is empty, generates initial version based on question + JD
+    /// If historical_answers has content, synthesizes from user's best attempts
+    pub async fn generate_best_answer(
+        &self,
+        question: &str,
+        job_description: &str,
+        historical_answers: &[(String, f32)],  // (answer, score)
+    ) -> Result<String> {
+        let system_prompt = "你是一位资深面试辅导专家。请生成一份针对该面试问题的优秀答案，语言简洁专业，结构清晰，突出关键要点。";
+        
+        let user_prompt = if historical_answers.is_empty() {
+            // First-time generation: based on question + JD only
+            format!(
+                "面试问题：{}\n\n岗位描述：{}\n\n请生成一份高质量的答案示例，包含：\n1. 核心要点\n2. 具体举例或经验\n3. 与岗位的关联\n\n直接输出答案内容，不需要额外格式或标题。",
+                question, job_description
+            )
+        } else {
+            // Iterative generation: synthesize from user's historical answers
+            let answers_summary: String = historical_answers
+                .iter()
+                .enumerate()
+                .map(|(i, (ans, score))| format!("\n第{}次回答(评分:{:.1}):\n{}", i + 1, score, ans))
+                .collect();
+            
+            format!(
+                "面试问题：{}\n\n岗位描述：{}\n\n用户历史回答：{}\n\n请基于用户的历史回答，提取其中的亮点和有效信息，综合生成一份更完善的优秀答案。\n要求：\n1. 保留用户回答中的有效经验和案例\n2. 优化表达结构和逻辑\n3. 补充缺失的关键要点\n\n直接输出答案内容，不需要额外格式或标题。",
+                question, job_description, answers_summary
+            )
+        };
+
+        let messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: system_prompt.to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: user_prompt,
+            },
+        ];
+
+        self.chat_completion(messages, Some(0.7), Some(2000)).await
+    }
+
+    /// Transcribe audio to text using SiliconFlow audio transcription API
+    /// With 15 seconds timeout protection
+    pub async fn transcribe_audio(
+        &self,
+        audio_data: &[u8],
+        filename: &str,
+    ) -> Result<String> {
+        use tokio::time::{timeout, Duration};
+        
+        let url = format!("{}/audio/transcriptions", self.base_url);
+        
+        // Create multipart form with audio file
+        let part = reqwest::multipart::Part::bytes(audio_data.to_vec())
+            .file_name(filename.to_string())
+            .mime_str("audio/webm")
+            .context("Failed to create multipart file part")?;
+        
+        let form = reqwest::multipart::Form::new()
+            .part("file", part)
+            .text("model", "FunAudioLLM/SenseVoiceSmall");
+        
+        // Wrap request with 15 seconds timeout
+        let request_future = async {
+            let response = self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", self.api_key))
+                .multipart(form)
+                .send()
+                .await
+                .context("Failed to send transcription request")?;
+            
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                anyhow::bail!("Transcription API failed with status {}: {}", status, error_text);
+            }
+            
+            let result: TranscriptionResponse = response
+                .json()
+                .await
+                .context("Failed to parse transcription response")?;
+            
+            Ok(result.text)
+        };
+        
+        timeout(Duration::from_secs(15), request_future)
+            .await
+            .context("Transcription request timeout after 15 seconds")?
     }
 }
 

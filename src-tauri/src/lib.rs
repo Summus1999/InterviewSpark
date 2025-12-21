@@ -12,11 +12,12 @@ mod analysis;
 
 use api::SiliconFlowClient;
 use api::siliconflow::SiliconFlowClient as SFClient;
-use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult, User};
+use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult, User, QuestionBestAnswer};
 use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
 use futures::StreamExt;
 use std::sync::{Arc, Mutex};
 use tauri::{State, Emitter};
+use base64::Engine;
 
 /// Application state holding the SiliconFlow API client and database
 /// 
@@ -866,6 +867,109 @@ fn get_answers_comparison(
         .map_err(|e| e.to_string())
 }
 
+/// Compute SHA256 hash for question text
+fn compute_question_hash(question: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    question.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
+
+/// Mark question's best answer as needing update
+#[tauri::command]
+fn mark_best_answer_needs_update(
+    question: String,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let hash = compute_question_hash(&question);
+    state.db.mark_answer_needs_update(&hash)
+        .map_err(|e| e.to_string())
+}
+
+/// Get or generate best answer for a question
+#[tauri::command]
+async fn get_or_generate_best_answer(
+    question: String,
+    job_description: String,
+    state: State<'_, AppState>,
+) -> Result<QuestionBestAnswer, String> {
+    let hash = compute_question_hash(&question);
+    
+    // Check if cached and not needing update
+    if let Ok(Some(cached)) = state.db.get_best_answer_by_hash(&hash) {
+        if !cached.needs_update {
+            return Ok(cached);
+        }
+    }
+    
+    // Get API client
+    let client = {
+        let client_guard = state.api_client.lock().unwrap();
+        client_guard.clone().ok_or("API client not initialized")?
+    };
+    
+    // Get historical answers for this question
+    let historical_answers = state.db.get_all_answers_for_question(&question)
+        .map_err(|e| e.to_string())?;
+    
+    // Generate best answer via API
+    let generated = client
+        .generate_best_answer(&question, &job_description, &historical_answers)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    // Save to database
+    let answer_count = historical_answers.len() as i32;
+    let jd_context = if job_description.is_empty() { None } else { Some(job_description.as_str()) };
+    
+    state.db.upsert_best_answer(&hash, &question, &generated, answer_count, jd_context)
+        .map_err(|e| e.to_string())?;
+    
+    // Return the newly saved data
+    state.db.get_best_answer_by_hash(&hash)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Failed to retrieve saved best answer".to_string())
+}
+
+/// Get comparison data with best answer
+#[tauri::command]
+async fn get_comparison_with_best_answer(
+    question: String,
+    job_description: String,
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    // Get history comparison
+    let history = state.db.get_answers_comparison(&question)
+        .map_err(|e| e.to_string())?;
+    
+    // Get or generate best answer
+    let hash = compute_question_hash(&question);
+    let best_answer = if let Ok(Some(cached)) = state.db.get_best_answer_by_hash(&hash) {
+        if !cached.needs_update {
+            Some(cached)
+        } else {
+            // Need to regenerate - but don't block, return cached for now
+            Some(cached)
+        }
+    } else {
+        None
+    };
+    
+    Ok(serde_json::json!({
+        "history": history.iter().map(|(ts, ans, fb, score)| {
+            serde_json::json!({
+                "timestamp": ts,
+                "answer": ans,
+                "feedback": fb,
+                "score": score
+            })
+        }).collect::<Vec<_>>(),
+        "bestAnswer": best_answer,
+        "needsGeneration": best_answer.is_none() || best_answer.as_ref().map(|b| b.needs_update).unwrap_or(false)
+    }))
+}
+
 /// Delete a specific interview session
 #[tauri::command]
 fn delete_session(session_id: i64, state: State<'_, AppState>) -> Result<(), String> {
@@ -1050,6 +1154,33 @@ async fn update_api_config(
     Ok(())
 }
 
+/// Transcribe audio to text using SiliconFlow API
+#[tauri::command]
+async fn transcribe_audio(
+    audio_base64: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let client = {
+        let client_guard = state.api_client.lock().unwrap();
+        client_guard.clone().ok_or("API client not initialized")?
+    };
+    
+    // Decode base64 audio data
+    let audio_data = base64::engine::general_purpose::STANDARD
+        .decode(&audio_base64)
+        .map_err(|e| format!("Failed to decode audio data: {}", e))?;
+    
+    // Generate unique filename
+    let timestamp = chrono::Utc::now().timestamp_millis();
+    let filename = format!("recording_{}.webm", timestamp);
+    
+    // Call transcription API
+    client
+        .transcribe_audio(&audio_data, &filename)
+        .await
+        .map_err(|e| format!("Transcription failed: {}", e))
+}
+
 /// Analyze answer using STAR method
 /// Returns STAR score breakdown and suggestions
 #[tauri::command]
@@ -1187,6 +1318,9 @@ pub fn run() {
       get_dashboard_data,
       get_activity_data,
       get_answers_comparison,
+      mark_best_answer_needs_update,
+      get_or_generate_best_answer,
+      get_comparison_with_best_answer,
       delete_session,
       delete_all_sessions,
       backup_data,
@@ -1209,7 +1343,8 @@ pub fn run() {
       delete_user,
       upload_avatar,
       get_avatar_path,
-      read_image_base64
+      read_image_base64,
+      transcribe_audio
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
