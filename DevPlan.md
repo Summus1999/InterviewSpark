@@ -929,6 +929,136 @@ Phase 5.5 (多用户与活跃度系统)
 
 ---
 
+## Phase 7: AI 反馈质量体系
+
+**目标**: 提升 AI 反馈的可操作性和一致性，让用户获得真正有价值的改进建议。
+
+**周期**: Week 13-15
+
+**状态**: ⭕ 待实施
+
+### 功能清单
+
+#### 模块 1: Prompt 工程优化（P0 高优先级）
+
+- [ ] 重构 analyze_answer Prompt
+  - 将输出格式从纯文本改为结构化 JSON
+  - 包含字段：score, summary, strengths, improvements, jobMatch
+  - 每条 improvement 包含 issue/reason/example 三段式结构
+  - 位置：`src-tauri/src/api/siliconflow.rs :: analyze_answer()`
+
+- [ ] 强化面试官人设 Prompt
+  - 扩展 `get_persona_prompt()` 从 1 句话到详细人设描述
+  - 为每种人设定义：评估侧重点、语气风格、典型措辞模式
+  - 支持 4 种人设：strict/friendly/stress/default
+  - 位置：`src-tauri/src/api/siliconflow.rs :: get_persona_prompt()`
+
+- [ ] 行业特化 Prompt
+  - 新增 `detect_industry()` 函数，根据 JD 识别行业类型
+  - 为技术岗/产品岗/运营岗定制评估维度
+  - 动态注入行业特化评估要点到 Prompt
+  - 位置：`src-tauri/src/api/siliconflow.rs`
+
+#### 模块 2: 结构化反馈展示（P0 高优先级）
+
+- [ ] 评分展示组件
+  - 创建 `FeedbackScore.vue` 组件
+  - 圆环图展示综合评分 + 等级徽章（A+/A/B+/B/C+/C/D/F）
+  - 位置：`src/components/FeedbackScore.vue`
+
+- [ ] 亮点展示组件
+  - 创建 `FeedbackStrengths.vue` 组件
+  - 绿色卡片展示优点，引用原文高亮
+  - 位置：`src/components/FeedbackStrengths.vue`
+
+- [ ] 改进建议组件
+  - 创建 `FeedbackImprovements.vue` 组件
+  - 橙色卡片，采用「问题 → 原因 → 修改示例」三段式布局
+  - 位置：`src/components/FeedbackImprovements.vue`
+
+- [ ] 岗位匹配度组件
+  - 创建 `JobMatchIndicator.vue` 组件
+  - 标签云展示命中关键词 + 缺失要点提示
+  - 位置：`src/components/JobMatchIndicator.vue`
+
+- [ ] 重构 FeedbackDisplay.vue
+  - 集成上述 4 个子组件
+  - 解析 JSON 格式反馈，分发到各区域
+  - 兼容旧版纯文本格式（降级显示）
+  - 位置：`src/components/FeedbackDisplay.vue`
+
+#### 模块 3: 反馈一致性保障（P1 中优先级）
+
+- [ ] 评分校准机制
+  - 实现 `calibrate_score()` 函数
+  - AI 评分与本地算法加权融合（AI 70% + 本地 30%）
+  - 位置：`src-tauri/src/analysis/scoring.rs`
+
+- [ ] 格式验证机制
+  - 实现 `validate_feedback()` 函数
+  - 验证 JSON 结构、必填字段、评分范围
+  - 位置：`src-tauri/src/api/siliconflow.rs`
+
+- [ ] 失败重试策略
+  - 格式异常时自动重试（最多 2 次）
+  - 第一次重试：加强格式要求提示
+  - 第二次重试：降低 temperature 到 0.3
+  - 仍失败：回退到简化版反馈模板
+
+#### 模块 4: 反馈进化机制（P1 中优先级）
+
+- [ ] 反馈评价 UI
+  - 在 FeedbackDisplay.vue 底部添加评价按钮
+  - 「有帮助 / 没帮助」两个选项
+  - 点击后显示感谢提示
+
+- [ ] 评价数据存储
+  - 数据库新增 `feedback_ratings` 表
+  - 字段：feedback_id, rating, created_at
+  - Repository 新增 `save_feedback_rating()` 方法
+  - 位置：`src-tauri/src/db/`
+
+- [ ] 评价统计查询
+  - 实现 `get_feedback_statistics()` 方法
+  - 统计有帮助/没帮助比例
+  - 为后续 Prompt 优化提供数据支撑
+
+### 实施检查清单
+
+```
+Phase A: Prompt 优化（Week 13）
+1.  [ ] 重写 analyze_answer user_prompt（结构化 JSON 输出）
+2.  [ ] 扩展 get_persona_prompt（4 种人设详细描述）
+3.  [ ] 新增 detect_industry() 行业识别函数
+4.  [ ] 编写行业特化 Prompt 模板
+5.  [ ] 后端编译验证
+
+Phase B: 前端结构化展示（Week 14）
+6.  [ ] 创建 FeedbackScore.vue 组件
+7.  [ ] 创建 FeedbackStrengths.vue 组件
+8.  [ ] 创建 FeedbackImprovements.vue 组件
+9.  [ ] 创建 JobMatchIndicator.vue 组件
+10. [ ] 重构 FeedbackDisplay.vue 集成新组件
+11. [ ] 前端编译验证
+
+Phase C: 一致性保障（Week 15）
+12. [ ] 实现 validate_feedback() 格式检测
+13. [ ] 实现 calibrate_score() 评分融合
+14. [ ] 实现格式失败重试策略
+15. [ ] 添加反馈评价 UI
+16. [ ] 实现评价数据存储
+17. [ ] 集成测试
+```
+
+### 交付标准
+
+- 反馈结构完整率 > 95%（包含 score + strengths + improvements）
+- 每条 improvement 都有 issue + reason + example
+- JSON 解析成功率 > 98%
+- 用户“有帮助”评价占比 > 70%
+
+---
+
 ## 阶段依赖关系（更新）
 
 ```
@@ -945,9 +1075,11 @@ Phase 5 (复盘分析系统) ✅
 Phase 5.5 (多用户与活跃度系统) ✅
     ↓
 Phase 6 (产品打磨与优化) 大部分 ✅
+    ↓
+Phase 7 (AI 反馈质量体系) ⭕ 待实施
 ```
 
-**说明**: Phase 6 核心功能已完成（计时模式、追问机制、模板系统、流式输出、引导教程），待完成功能为可选增强项。
+**说明**: Phase 7 专注于提升 AI 反馈的可操作性和一致性，是产品价值的核心打磨点。
 
 ---
 
