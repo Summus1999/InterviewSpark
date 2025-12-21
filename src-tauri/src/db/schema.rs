@@ -186,6 +186,7 @@ CREATE INDEX IF NOT EXISTS idx_tag_mappings_question_id ON question_tag_mappings
 CREATE INDEX IF NOT EXISTS idx_tag_mappings_tag_id ON question_tag_mappings(tag_id);
 CREATE INDEX IF NOT EXISTS idx_qba_hash ON question_best_answers(question_hash);
 CREATE INDEX IF NOT EXISTS idx_qba_needs_update ON question_best_answers(needs_update);
+CREATE INDEX IF NOT EXISTS idx_interview_answers_question ON interview_answers(question);
 "#;
 
 /// Check if a column exists in a table

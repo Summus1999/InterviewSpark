@@ -166,6 +166,16 @@
         />
       </div>
     </div>
+    
+    <!-- Answer Comparison Modal -->
+    <div v-if="showAnswerComparisonModal" class="modal-overlay" @click="closeAnswerComparisonModal">
+      <div class="modal-content modal-large" @click.stop>
+        <button class="close-btn modal-close-btn" @click="closeAnswerComparisonModal" aria-label="Close">✕</button>
+        <AnswerComparison 
+          :question="selectedQuestionForComparison"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -179,11 +189,14 @@ import { ref, onMounted, computed } from 'vue'
 import type { InterviewSession, InterviewAnswer } from '../services/database'
 import { getSessions, getSession, getAnswers, deleteSession, deleteAllSessions, backupData, restoreData } from '../services/database'
 import ReportView from './ReportView.vue'
+import AnswerComparison from './AnswerComparison.vue'
 
 const sessions = ref<InterviewSession[]>([])
 const selectedSession = ref<InterviewSession | null>(null)
 const sessionAnswers = ref<InterviewAnswer[]>([])
 const showComparisonModal = ref(false)
+const showAnswerComparisonModal = ref(false)
+const selectedQuestionForComparison = ref('')
 const showConfirmDialog = ref(false)
 const showReportModal = ref(false)
 const selectedSessionForReport = ref<number | null>(null)
@@ -242,17 +255,18 @@ const closeComparisonModal = () => {
 }
 
 const openQuestionComparisonModal = (question: string) => {
+  selectedQuestionForComparison.value = question
+  showAnswerComparisonModal.value = true
   closeComparisonModal()
-  // Emit event to parent to show comparison for this question
-  // This will be handled by the parent component or routing
-  console.log('Compare question:', question)
 }
 
 const selectQuestionForComparison = (question: string) => {
-  // Emit to parent or navigate to comparison view
-  // For now, we'll just close the modal
-  closeComparisonModal()
   openQuestionComparisonModal(question)
+}
+
+const closeAnswerComparisonModal = () => {
+  showAnswerComparisonModal.value = false
+  selectedQuestionForComparison.value = ''
 }
 
 const confirmDeleteSession = (sessionId: number) => {

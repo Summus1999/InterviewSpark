@@ -49,47 +49,111 @@
         <p>暂无该问题的历史记录</p>
       </div>
 
-      <div v-else class="comparison-timeline">
-        <h3 class="timeline-title">历史回答记录</h3>
-        <div
-          v-for="(item, index) in comparisonData"
-          :key="index"
-          class="comparison-item"
-        >
-          <div class="timeline-marker">
-            <div class="dot"></div>
-            <div v-if="index < comparisonData.length - 1" class="line"></div>
-          </div>
+      <div v-else>
+        <!-- Mode Switch Buttons -->
+        <div class="mode-switch">
+          <button 
+            @click="switchToTimeline" 
+            :class="{ active: comparisonMode === 'timeline' }"
+            class="mode-btn"
+          >
+            📅 时间线视图
+          </button>
+          <button 
+            @click="switchToSideBySide" 
+            :class="{ active: comparisonMode === 'sideBySide' }"
+            :disabled="!canCompare()"
+            class="mode-btn"
+          >
+            🔀 并排对比 {{ selectedIndices.length > 0 ? `(${selectedIndices.length}/2)` : '' }}
+          </button>
+        </div>
 
-          <div class="item-content">
-            <div class="item-header">
-              <div class="meta">
-                <span class="timestamp">{{ formatDate(item.timestamp) }}</span>
-                <span class="score-badge" :class="getScoreClass(parseFloat(item.score))">
-                  评分: {{ item.score }}
-                </span>
+        <!-- Timeline Mode -->
+        <div v-if="comparisonMode === 'timeline'" class="comparison-timeline">
+          <h3 class="timeline-title">历史回答记录</h3>
+          <p class="selection-hint" v-if="processedComparisonData.length >= 2">
+            💡 提示：选择 2 个回答后可切换到并排对比模式
+          </p>
+          <div
+            v-for="(item, index) in processedComparisonData"
+            :key="index"
+            class="comparison-item"
+            :class="{ selected: isSelected(index) }"
+          >
+            <div class="timeline-marker">
+              <div class="dot"></div>
+              <div v-if="index < processedComparisonData.length - 1" class="line"></div>
+            </div>
+
+            <div class="item-content">
+              <div class="item-header">
+                <div class="meta">
+                  <input 
+                    v-if="processedComparisonData.length >= 2"
+                    type="checkbox" 
+                    :checked="isSelected(index)"
+                    @change="toggleSelection(index)"
+                    class="select-checkbox"
+                  />
+                  <span class="timestamp">{{ item.formattedTimestamp }}</span>
+                  <span class="score-badge" :class="item.scoreClass">
+                    评分: {{ item.score }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="answer-section">
+                <h4>你的回答</h4>
+                <div class="text-content">{{ item.answer }}</div>
+              </div>
+
+              <div class="feedback-section">
+                <h4>反馈</h4>
+                <div class="text-content">{{ item.feedback }}</div>
               </div>
             </div>
+          </div>
 
-            <div class="answer-section">
-              <h4>你的回答</h4>
-              <div class="text-content">{{ item.answer }}</div>
-            </div>
-
-            <div class="feedback-section">
-              <h4>反馈</h4>
-              <div class="text-content">{{ item.feedback }}</div>
-            </div>
+          <div class="progress-indicator">
+            <p class="progress-text">
+              已对比 {{ processedComparisonData.length }} 次尝试
+              <span v-if="processedComparisonData.length > 1" class="improvement">
+                最早评分: {{ lowestScore }} -> 最近评分: {{ highestScore }}
+              </span>
+            </p>
           </div>
         </div>
 
-        <div class="progress-indicator">
-          <p class="progress-text">
-            已对比 {{ comparisonData.length }} 次尝试
-            <span v-if="comparisonData.length > 1" class="improvement">
-              最早评分: {{ getLowestScore() }} -> 最近评分: {{ getHighestScore() }}
-            </span>
-          </p>
+        <!-- Side by Side Mode -->
+        <div v-else-if="comparisonMode === 'sideBySide'" class="side-by-side-container">
+          <div class="comparison-grid">
+            <div 
+              v-for="(item, idx) in getSelectedItems()" 
+              :key="idx"
+              class="comparison-column"
+            >
+              <div class="column-header">
+                <span class="column-title">回答 {{ idx + 1 }}</span>
+                <span class="timestamp">{{ item.formattedTimestamp }}</span>
+                <span class="score-badge" :class="item.scoreClass">
+                  评分: {{ item.score }}
+                </span>
+              </div>
+              
+              <div class="column-content">
+                <div class="answer-section">
+                  <h4>你的回答</h4>
+                  <div class="text-content">{{ item.answer }}</div>
+                </div>
+
+                <div class="feedback-section">
+                  <h4>反馈</h4>
+                  <div class="text-content">{{ item.feedback }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -97,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { 
   getAnswersComparison, 
   getOrGenerateBestAnswer,
@@ -114,11 +178,44 @@ const props = withDefaults(defineProps<Props>(), {
   jobDescription: ''
 })
 
+interface ProcessedComparisonItem extends AnswerComparisonItem {
+  formattedTimestamp: string
+  scoreValue: number
+  scoreClass: string
+}
+
 const comparisonData = ref<AnswerComparisonItem[]>([])
 const bestAnswer = ref<QuestionBestAnswer | null>(null)
 const loading = ref(false)
 const generatingBestAnswer = ref(false)
 const error = ref<string | null>(null)
+const comparisonMode = ref<'timeline' | 'sideBySide'>('timeline')
+const selectedIndices = ref<number[]>([])
+
+// Computed: Pre-process comparison data to avoid repeated calculations in template
+const processedComparisonData = computed<ProcessedComparisonItem[]>(() => {
+  return comparisonData.value.map(item => {
+    const scoreValue = parseFloat(item.score)
+    return {
+      ...item,
+      formattedTimestamp: formatDate(item.timestamp),
+      scoreValue,
+      scoreClass: getScoreClass(scoreValue)
+    }
+  })
+})
+
+// Computed: Lowest score
+const lowestScore = computed<string>(() => {
+  if (processedComparisonData.value.length === 0) return '-'
+  return Math.min(...processedComparisonData.value.map(item => item.scoreValue)).toFixed(1)
+})
+
+// Computed: Highest score
+const highestScore = computed<string>(() => {
+  if (processedComparisonData.value.length === 0) return '-'
+  return Math.max(...processedComparisonData.value.map(item => item.scoreValue)).toFixed(1)
+})
 
 onMounted(async () => {
   await loadComparison()
@@ -128,20 +225,27 @@ const loadComparison = async () => {
   loading.value = true
   error.value = null
   try {
-    // Load history data
+    // Load history data first (fast, non-blocking)
     comparisonData.value = await getAnswersComparison(props.question)
     
-    // Try to get cached best answer (non-blocking)
-    try {
-      bestAnswer.value = await getOrGenerateBestAnswer(props.question, props.jobDescription)
-    } catch {
-      // Best answer generation failed, but history is still available
-      bestAnswer.value = null
-    }
+    // Immediately show history data to user
+    loading.value = false
+    
+    // Load best answer asynchronously in background (non-blocking)
+    loadBestAnswerAsync()
   } catch (err: any) {
     error.value = err?.message || 'Failed to load comparison data'
-  } finally {
     loading.value = false
+  }
+}
+
+const loadBestAnswerAsync = async () => {
+  try {
+    bestAnswer.value = await getOrGenerateBestAnswer(props.question, props.jobDescription)
+  } catch (err) {
+    // Best answer generation failed, but history is still available
+    console.warn('Failed to load best answer:', err)
+    bestAnswer.value = null
   }
 }
 
@@ -178,14 +282,42 @@ const getScoreClass = (score: number): string => {
   return 'poor'
 }
 
-const getLowestScore = (): string => {
-  if (comparisonData.value.length === 0) return '-'
-  return Math.min(...comparisonData.value.map((item: AnswerComparisonItem) => parseFloat(item.score))).toFixed(1)
+const toggleSelection = (index: number) => {
+  const idx = selectedIndices.value.indexOf(index)
+  if (idx > -1) {
+    selectedIndices.value.splice(idx, 1)
+  } else {
+    if (selectedIndices.value.length < 2) {
+      selectedIndices.value.push(index)
+    } else {
+      selectedIndices.value = [selectedIndices.value[1], index]
+    }
+  }
 }
 
-const getHighestScore = (): string => {
-  if (comparisonData.value.length === 0) return '-'
-  return Math.max(...comparisonData.value.map((item: AnswerComparisonItem) => parseFloat(item.score))).toFixed(1)
+const isSelected = (index: number): boolean => {
+  return selectedIndices.value.includes(index)
+}
+
+const getSelectedItems = () => {
+  return selectedIndices.value
+    .sort((a, b) => a - b)
+    .map(idx => processedComparisonData.value[idx])
+}
+
+const canCompare = (): boolean => {
+  return selectedIndices.value.length === 2
+}
+
+const switchToSideBySide = () => {
+  if (canCompare()) {
+    comparisonMode.value = 'sideBySide'
+  }
+}
+
+const switchToTimeline = () => {
+  comparisonMode.value = 'timeline'
+  selectedIndices.value = []
 }
 </script>
 
@@ -517,6 +649,141 @@ const getHighestScore = (): string => {
   font-weight: 600;
 }
 
+/* Mode Switch */
+.mode-switch {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+  color: #666;
+}
+
+.mode-btn:hover:not(:disabled) {
+  border-color: #667eea;
+  background: #f0f0ff;
+  color: #667eea;
+}
+
+.mode-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selection-hint {
+  margin: 0 0 16px 0;
+  padding: 8px 12px;
+  background: #fff9e6;
+  border-left: 3px solid #fbbf24;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.select-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.comparison-item.selected {
+  border-left: 3px solid #667eea;
+}
+
+.comparison-item.selected .item-content {
+  background: #f0f0ff;
+}
+
+/* Side by Side Mode */
+.side-by-side-container {
+  padding-top: 16px;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.comparison-column {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.column-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.column-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.column-header .timestamp {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: normal;
+}
+
+.column-header .score-badge {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.column-content {
+  padding: 20px;
+}
+
+.column-content .answer-section,
+.column-content .feedback-section {
+  margin-bottom: 16px;
+}
+
+.column-content h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.column-content .text-content {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #555;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .comparison-container {
@@ -551,6 +818,14 @@ const getHighestScore = (): string => {
 
   .text-content {
     font-size: 13px;
+  }
+  
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .mode-switch {
+    flex-direction: column;
   }
 }
 </style>

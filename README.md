@@ -187,7 +187,7 @@ src/                      # Vue 3 前端代码
   App.vue                 # 主应用组件（面试流程控制）
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
-  components/             # Vue 组件（41个）
+  components/             # Vue 组件（39个）
     ResumeInput.vue       # 简历输入组件（支持模板选择）
     JobDescription.vue    # 岗位描述输入组件（支持模板选择）
     TemplateSelector.vue  # 简历/JD模板选择器
@@ -195,29 +195,36 @@ src/                      # Vue 3 前端代码
     InterviewHistory.vue  # 历史记录查看组件
     QuestionBank.vue      # 题库管理组件
     VoiceControls.vue     # 语音控制组件
-    Dashboard.vue         # 数据仪表板
+    Dashboard.vue         # 用户管理界面
     GrowthView.vue        # 成长曲线页面
     ReportView.vue        # 复盘报告展示
-    AnswerComparison.vue  # 答案对比组件
+    AnswerComparison.vue  # 答案对比组件（支持时间线/并排模式）
     FeedbackDisplay.vue   # AI 流式反馈展示
-    ThemeToggle.vue       # 主题切换组件（已废弃）
     SettingsPanel.vue     # 设置面板（主题/模型/API Key）
     TimerDisplay.vue      # 计时器显示组件
+    TimerSettings.vue     # 计时设置组件
     OnboardingGuide.vue   # 首次使用引导组件
     TooltipBubble.vue     # 通用提示气泡组件
+    FollowUpPanel.vue     # AI 追问面板
+    FollowUpSettings.vue  # 追问设置组件
+    ConversationHistory.vue # 对话历史组件
     ProfileView.vue       # 个人面试画像（分析模式）
     IndustryComparison.vue  # 行业水平对比（分析模式）
     RecommendationList.vue  # 智能练习推荐（分析模式）
     BestPracticesList.vue   # 最佳实践（分析模式）
+    STARScoreDisplay.vue    # STAR 法则评分展示
     ...及其他辅助组件
-  data/                   # 数据模块
-    templates.ts          # 简历/JD预置模板（6个简历模板+6个JD模板）
-    useStreaming.ts       # 流式响应处理
+  composables/            # Vue Composition API 封装
     useAutoSave.ts        # 自动保存草稿
     useDataPreloader.ts   # 数据预加载
+    useStreaming.ts       # 流式响应处理
+  data/                   # 数据模块
+    templates.ts          # 简历/JD预置模板（6个简历模板+6个JD模板）
   stores/                 # Pinia 状态管理
-    questionBank.ts       # 题库缓存 Store
-    session.ts            # 会话历史缓存 Store
+    questionBank.ts       # 题库缓存 Store（5分钟缓存）
+    session.ts            # 会话历史缓存 Store（3分钟缓存）
+  types/                  # TypeScript 类型定义
+    follow-up.ts          # 追问类型定义
   services/               # 服务层
     database.ts           # 数据库服务接口
     voice.ts              # 语音服务（TTS/ASR）
