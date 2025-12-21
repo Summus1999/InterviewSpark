@@ -1103,42 +1103,45 @@ pub fn run() {
   // Initialize API client
   let api_client = SiliconFlowClient::from_env().ok();
   
-  // Initialize database - store in parent directory to avoid Tauri rebuild triggers
-  let db_path = std::env::current_dir()
-    .unwrap_or_else(|_| std::path::PathBuf::from("."))
-    .parent()  // Go to workspace root (parent of src-tauri)
-    .unwrap_or_else(|| std::path::Path::new("."))
-    .join("data")
-    .join("interview_spark.db");
-  
-  // Create data directory if it doesn't exist
-  if let Some(parent) = db_path.parent() {
-    std::fs::create_dir_all(parent).ok();
-  }
-  
-  let conn = init_database(db_path)
-    .expect("Failed to initialize database");
-  
-  let repository = Arc::new(Repository::new(conn));
-  let cache_manager = Arc::new(CacheManager::new());
-  
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
+    .plugin(
+      tauri_plugin_log::Builder::default()
+        .level(log::LevelFilter::Info)
+        .build(),
+    )
+    .setup(move |app| {
+      use tauri::Manager;
+      
+      // Get app data directory using Tauri standard path
+      let app_data_dir = app.path().app_data_dir()
+        .expect("Failed to get app data directory");
+      
+      // Database path: {app_data_dir}/data/interview_spark.db
+      let db_path = app_data_dir.join("data").join("interview_spark.db");
+      
+      // Create data directory if it doesn't exist
+      if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent).ok();
       }
+      
+      log::info!("Database path: {:?}", db_path);
+      
+      let conn = init_database(db_path)
+        .expect("Failed to initialize database");
+      
+      let repository = Arc::new(Repository::new(conn));
+      let cache_manager = Arc::new(CacheManager::new());
+      
+      // Manage AppState in setup
+      app.manage(AppState {
+        api_client: Mutex::new(api_client.clone()),
+        db: repository,
+        cache: cache_manager,
+      });
+      
       Ok(())
-    })
-    .manage(AppState {
-      api_client: Mutex::new(api_client),
-      db: repository,
-      cache: cache_manager,
     })
     .invoke_handler(tauri::generate_handler![
       greet,

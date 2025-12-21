@@ -105,15 +105,62 @@ npm run format
 
 ## 构建
 
+### 开发构建
+
 ```bash
 # 构建前端静态文件
 npm run build
 
-# 构建发布版应用 (生成安装包)
-npm run tauri:build
+# Rust 编译检查
+cd src-tauri && cargo check && cd ..
 ```
 
-构建产物位于 `src-tauri/target/release/bundle/`
+### 发布构建
+
+```bash
+# 构建发布版应用 (同步版本号并生成安装包)
+npm run release
+```
+
+构建产物位于 `src-tauri/target/release/bundle/`：
+- MSI 安装包: `bundle/msi/InterviewSpark_x.x.x_x64_en-US.msi`
+
+### 离线构建 (国内网络)
+
+首次构建时，Tauri 需要下载 WiX Toolset 和 NSIS 打包工具。国内网络可能下载失败，可手动配置：
+
+1. WiX Toolset (用于 MSI 打包)
+   - 下载: https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip
+   - 解压到: `C:\Users\{用户名}\AppData\Local\tauri\WixTools314`
+
+2. NSIS (用于 EXE 打包)
+   - 下载以下文件:
+     - https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip
+     - https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.1.1/nsis_tauri_utils.dll
+     - https://github.com/tauri-apps/binary-releases/releases/download/nsis-plugins-v0/NSIS-ApplicationID.zip
+   - 解压 nsis-3.zip 到: `C:\Users\{用户名}\AppData\Local\tauri\NSIS`
+   - 复制 nsis_tauri_utils.dll 和 ApplicationID.dll 到: `NSIS\Plugins\x86-unicode`
+
+### 打包格式配置
+
+在 `src-tauri/tauri.conf.json` 中配置打包格式：
+
+```json
+{
+  "bundle": {
+    "targets": ["msi"]       // 仅 MSI
+    // "targets": ["nsis"]    // 仅 EXE
+    // "targets": ["msi", "nsis"]  // 同时生成
+  }
+}
+```
+
+### 数据存储位置
+
+安装后应用数据存储在用户目录：
+- Windows: `C:\Users\{用户名}\AppData\Roaming\com.interviewspark.app\`
+  - `data/interview_spark.db` - SQLite 数据库
+  - `avatars/` - 用户头像
 
 ## 项目结构
 

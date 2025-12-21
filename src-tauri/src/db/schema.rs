@@ -213,7 +213,15 @@ fn migrate_tables(conn: &Connection) -> Result<()> {
     }
     
     // Add avatar_path column to users table if it doesn't exist
-    if !column_exists(conn, "users", "avatar_path")? {
+    let users_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='users')",
+            [],
+            |row| row.get(0)
+        )
+        .unwrap_or(false);
+    
+    if users_exists && !column_exists(conn, "users", "avatar_path")? {
         log::info!("Migrating users table to add avatar_path column");
         conn.execute(
             "ALTER TABLE users ADD COLUMN avatar_path TEXT",
@@ -233,16 +241,19 @@ fn migrate_tables(conn: &Connection) -> Result<()> {
 /// * `Ok(Connection)` - Database connection if successful
 /// * `Err` - Error if initialization fails
 pub fn init_database(db_path: PathBuf) -> Result<Connection> {
-    let conn = Connection::open(db_path)?;
+    log::info!("Opening database at: {:?}", db_path);
+    let conn = Connection::open(&db_path)?;
     
     // Enable foreign keys
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     
-    // Migrate existing tables before creating new schema
-    migrate_tables(&conn)?;
-    
-    // Execute schema creation
+    // First create schema, then migrate
+    log::info!("Creating database schema...");
     conn.execute_batch(CREATE_TABLES_SQL)?;
+    log::info!("Schema created successfully");
+    
+    // Migrate existing tables after schema creation
+    migrate_tables(&conn)?;
     
     // Create default user if not exists
     let default_user_exists: bool = conn
