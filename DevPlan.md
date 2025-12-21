@@ -778,10 +778,10 @@ Phase 5.5 (多用户与活跃度系统)
 
 **3.2 知识沉淀**
 
-- [ ] 自动提取最佳实践
+- [x] 自动提取最佳实践 ✅ 已完成
   - ✅ 创建 `src/components/BestPracticesList.vue` 组件
-  - 从 AI 反馈中自动提取优秀答案要点
-  - 一键加入题库
+  - ✅ 后端 `src-tauri/src/analysis/best_practices.rs` 分析模块
+  - ✅ 从 AI 反馈中自动提取优秀答案要点
 
 - [x] Markdown 答案笔记 ✅ 已完成
   - 创建 `MarkdownNotes.vue` 组件
@@ -887,7 +887,7 @@ Phase 5.5 (多用户与活跃度系统)
 
 模块 2 其他功能:
 11. [ ] 实现面试官人设选择
-12. [ ] 实现 STAR 法则评分
+12. [x] 实现 STAR 法则评分 ✅
 13. [ ] 多轮对话模式
 
 模块 3 数据分析:
@@ -934,3 +934,67 @@ Phase 6 (产品打磨与优化) ⏳
 ```
 
 **说明**: Phase 6 可按模块独立开发，建议优先实施高优先级功能（计时模式、追问机制、模板系统）。
+
+---
+
+## 构建与发布配置
+
+**状态**: ✅ 已完成
+
+### 编译指令
+
+本项目提供三种编译指令，分别适用于不同场景：
+
+```bash
+# 开发版 exe（debug 模式，不打包）
+npm run build:dev
+
+# 测试版 exe（release 模式，不打包）
+npm run build:test
+
+# 发布版安装包（NSIS 格式，含卸载清理功能）
+npm run build:release
+```
+
+**构建产物**:
+- NSIS 安装包: `src-tauri/target/release/bundle/nsis/InterviewSpark_1.0.0_x64-setup.exe`
+- 独立 exe（build:dev/test）: `src-tauri/target/release/app.exe` 或 `target/debug/app.exe`
+
+### 打包格式
+
+当前项目配置为 NSIS 打包格式，在 `src-tauri/tauri.conf.json` 中：
+
+```json
+{
+  "bundle": {
+    "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/hooks.nsi"
+      }
+    }
+  }
+}
+```
+
+### 卸载数据清理
+
+**配置文件**: `src-tauri/nsis/hooks.nsi`
+
+**功能**: 卸载应用时自动删除用户数据目录
+
+**清理路径**: `$APPDATA\com.interviewspark.app`
+
+**实现机制**: 使用 NSIS `NSIS_HOOK_PREUNINSTALL` 宏，在卸载前执行 `RMDir /r` 命令删除目录
+
+**验证结果**: ✅ 已测试通过，卸载后 `AppData` 目录完全清除
+
+### 数据备份与恢复
+
+**导出功能**: 历史记录页面 → 备份数据按钮 → 生成 JSON 全量备份
+
+**导入功能**: 历史记录页面 → 恢复数据按钮 → 从 JSON 文件恢复数据
+
+**后端实现**: `src-tauri/src/analysis/backup.rs` - `BackupManager` 模块
+
+**用户提醒**: README 中明确说明卸载会清空数据，提醒用户在卸载前备份

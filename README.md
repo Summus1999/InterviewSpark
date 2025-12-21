@@ -105,7 +105,26 @@ npm run format
 
 ## 构建
 
-### 开发构建
+### 编译指令
+
+本项目提供三种编译指令，分别适用于不同场景：
+
+```bash
+# 开发版 exe（debug 模式，不打包）
+npm run build:dev
+
+# 测试版 exe（release 模式，不打包）
+npm run build:test
+
+# 发布版安装包（NSIS 格式，含卸载清理功能）
+npm run build:release
+```
+
+构建产物位于 `src-tauri/target/release/bundle/`：
+- NSIS 安装包: `bundle/nsis/InterviewSpark_1.0.0_x64-setup.exe`
+- 独立 exe（build:dev/test）: `target/release/app.exe` 或 `target/debug/app.exe`
+
+### 传统构建方式
 
 ```bash
 # 构建前端静态文件
@@ -113,54 +132,53 @@ npm run build
 
 # Rust 编译检查
 cd src-tauri && cargo check && cd ..
-```
 
-### 发布构建
-
-```bash
 # 构建发布版应用 (同步版本号并生成安装包)
 npm run release
 ```
 
-构建产物位于 `src-tauri/target/release/bundle/`：
-- MSI 安装包: `bundle/msi/InterviewSpark_x.x.x_x64_en-US.msi`
-
 ### 离线构建 (国内网络)
 
-首次构建时，Tauri 需要下载 WiX Toolset 和 NSIS 打包工具。国内网络可能下载失败，可手动配置：
+首次构建时，Tauri 需要下载 NSIS 打包工具。国内网络可能下载失败，可手动配置：
 
-1. WiX Toolset (用于 MSI 打包)
-   - 下载: https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip
-   - 解压到: `C:\Users\{用户名}\AppData\Local\tauri\WixTools314`
-
-2. NSIS (用于 EXE 打包)
-   - 下载以下文件:
-     - https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip
-     - https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.1.1/nsis_tauri_utils.dll
-     - https://github.com/tauri-apps/binary-releases/releases/download/nsis-plugins-v0/NSIS-ApplicationID.zip
-   - 解压 nsis-3.zip 到: `C:\Users\{用户名}\AppData\Local\tauri\NSIS`
-   - 复制 nsis_tauri_utils.dll 和 ApplicationID.dll 到: `NSIS\Plugins\x86-unicode`
+**NSIS 离线安装**:
+- 下载以下文件:
+  - https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip
+  - https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.1.1/nsis_tauri_utils.dll
+  - https://github.com/tauri-apps/binary-releases/releases/download/nsis-plugins-v0/NSIS-ApplicationID.zip
+- 解压 nsis-3.zip 到: `C:\Users\{用户名}\AppData\Local\tauri\NSIS`
+- 复制 nsis_tauri_utils.dll 和 ApplicationID.dll 到: `NSIS\Plugins\x86-unicode`
 
 ### 打包格式配置
 
-在 `src-tauri/tauri.conf.json` 中配置打包格式：
+当前项目配置为 NSIS 打包格式，在 `src-tauri/tauri.conf.json` 中：
 
 ```json
 {
   "bundle": {
-    "targets": ["msi"]       // 仅 MSI
-    // "targets": ["nsis"]    // 仅 EXE
-    // "targets": ["msi", "nsis"]  // 同时生成
+    "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/hooks.nsi"
+      }
+    }
   }
 }
 ```
 
-### 数据存储位置
+## 数据存储位置
 
 安装后应用数据存储在用户目录：
 - Windows: `C:\Users\{用户名}\AppData\Roaming\com.interviewspark.app\`
   - `data/interview_spark.db` - SQLite 数据库
   - `avatars/` - 用户头像
+
+### 卸载行为
+
+**重要**: 卸载应用时，系统会自动删除以下目录及所有数据：
+- `C:\Users\{用户名}\AppData\Roaming\com.interviewspark.app\`
+
+如需保留数据，请在卸载前使用应用内的"数据备份"功能导出数据（历史记录页面 → 备份数据按钮）。导出的 JSON 文件可在重新安装后导入。
 
 ## 项目结构
 
@@ -169,7 +187,7 @@ src/                      # Vue 3 前端代码
   App.vue                 # 主应用组件（面试流程控制）
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
-  components/             # Vue 组件（35个）
+  components/             # Vue 组件（41个）
     ResumeInput.vue       # 简历输入组件（支持模板选择）
     JobDescription.vue    # 岗位描述输入组件（支持模板选择）
     TemplateSelector.vue  # 简历/JD模板选择器
