@@ -72,17 +72,31 @@ impl RagService {
                 log::info!("Initializing RAG service (first-time use)...");
                 log::info!("Model directory: {:?}", self.model_dir);
                 
-                // Initialize embedding service from local model files
-                let embedding_service = EmbeddingService::new_from_local(self.model_dir.clone())?;
+                // Clone paths for move into spawn_blocking
+                let model_dir = self.model_dir.clone();
+                let db_path = self.db_path.clone();
                 
-                // Open new connection for vector store
-                let conn = rusqlite::Connection::open(&self.db_path)?;
-                let vector_store = VectorStore::new(conn);
+                // Run blocking initialization in dedicated thread pool
+                let (embedding_service, vector_store) = tokio::task::spawn_blocking(move || {
+                    log::info!("Loading embedding model in blocking thread...");
+                    
+                    // Initialize embedding service from local model files (blocking I/O)
+                    let embedding_service = EmbeddingService::new_from_local(model_dir)?;
+                    
+                    // Open new connection for vector store (blocking I/O)
+                    let conn = rusqlite::Connection::open(&db_path)?;
+                    let vector_store = VectorStore::new(conn);
+                    
+                    log::info!("Blocking initialization complete");
+                    Ok::<_, anyhow::Error>((embedding_service, vector_store))
+                })
+                .await
+                .map_err(|e| anyhow::anyhow!("Spawn blocking task failed: {}", e))??;
                 
-                // Build HNSW index if needed
+                // Build HNSW index (async operation)
                 vector_store.build_index().await?;
                 
-                // Create retriever (shares references)
+                // Create retriever
                 let retriever = Retriever::new_shared();
                 
                 log::info!("RAG service initialized successfully");

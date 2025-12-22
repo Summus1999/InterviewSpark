@@ -312,16 +312,16 @@ impl SiliconFlowClient {
         context: Option<&str>,
     ) -> Result<Vec<String>> {
         let base_prompt = Self::get_persona_prompt(persona);
-        let system_prompt = format!("{} You MUST respond with ONLY a valid JSON array, no additional text or explanations.", base_prompt);
+        let system_prompt = format!("{} 你必须只返回有效的JSON数组，不要任何额外的文字或解释。", base_prompt);
         
         let context_section = if let Some(ctx) = context {
-            format!("\n\nReference Questions from Knowledge Base:\n{}\n\nYou can refer to the above examples but should generate new, relevant questions based on the provided resume and job description.", ctx)
+            format!("\n\n知识库参考问题：\n{}\n\n你可以参考以上示例，但需要根据提供的简历和岗位描述生成新的相关问题。", ctx)
         } else {
             String::new()
         };
         
         let user_prompt = format!(
-            "Based on the following resume and job description, generate exactly {} relevant interview questions.{}\n\nResume:\n{}\n\nJob Description:\n{}\n\nIMPORTANT: Return ONLY a JSON array of strings. No explanations, no markdown, just the array. Format: [\"question1\", \"question2\", ...]\n\n重要提示：只返回JSON数组，不要任何解释说明。",
+            "根据以下简历和岗位描述，生成 {} 个相关的面试问题。所有问题必须使用中文。{}\n\n简历：\n{}\n\n岗位描述：\n{}\n\n重要提示：只返回JSON数组，不要任何解释说明。格式：[\"问题1\", \"问题2\", ...]",
             count, context_section, resume, job_description
         );
 

@@ -118,6 +118,7 @@ export class SpeechToText {
   private onEndCallback: (() => void) | null = null
   private silenceTimer: ReturnType<typeof setTimeout> | null = null
   private silenceTimeout = 10000 // 10 seconds of silence before auto-stop
+  private manualStop = false // Flag to distinguish manual stop from auto-end
 
   constructor() {
     // Check browser support
@@ -163,7 +164,21 @@ export class SpeechToText {
 
     this.recognition.onend = () => {
       this.clearSilenceTimer()
+      
+      // Auto-restart if not manually stopped (browser auto-ended due to pause)
+      if (this.isListening && !this.manualStop) {
+        console.log('Speech recognition auto-ended, restarting...')
+        try {
+          this.recognition.start()
+          this.startSilenceTimer()
+          return // Don't trigger end callback
+        } catch (error) {
+          console.error('Failed to restart recognition:', error)
+        }
+      }
+      
       this.isListening = false
+      this.manualStop = false
       if (this.onEndCallback) {
         this.onEndCallback()
       }
@@ -218,6 +233,7 @@ export class SpeechToText {
 
     this.onResultCallback = onResult
     this.onEndCallback = onEnd || null
+    this.manualStop = false // Reset manual stop flag
 
     try {
       this.recognition.start()
@@ -234,6 +250,7 @@ export class SpeechToText {
    */
   stop(): void {
     this.clearSilenceTimer()
+    this.manualStop = true // Mark as manual stop to prevent auto-restart
     if (this.isListening) {
       this.recognition.stop()
       this.isListening = false

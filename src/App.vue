@@ -118,7 +118,11 @@
                   :disabled="!canGenerate || isLoading"
                   class="primary-btn"
                 >
-                  {{ isLoading ? '生成中...' : '生成面试问题' }}
+                  <span v-if="isLoading" class="loading-indicator">
+                    <span class="spinner"></span>
+                    问题生成中...
+                  </span>
+                  <span v-else>生成面试问题</span>
                 </button>
               </TooltipBubble>
             </div>
@@ -1316,5 +1320,24 @@ main {
   font-family: monospace;
   z-index: 100;
   user-select: none;
+}
+
+.loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
