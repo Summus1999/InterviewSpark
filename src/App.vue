@@ -477,7 +477,7 @@ const generateQuestions = async () => {
     questions.value = [
       '请你做一下自我介绍',
       ...aiQuestions,
-      '那你还有什么想要问我的吗'
+      '那你还有什么想问我的吗'
     ]
     
     currentStep.value = 'questions'
