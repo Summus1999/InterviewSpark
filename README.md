@@ -121,7 +121,7 @@ npm run build:release
 ```
 
 构建产物位于 `src-tauri/target/release/bundle/`：
-- NSIS 安装包: `bundle/nsis/InterviewSpark_1.0.0_x64-setup.exe`
+- NSIS 安装包: `bundle/nsis/InterviewSpark_1.0.2_x64-setup.exe`
 - 独立 exe（build:dev/test）: `target/release/app.exe` 或 `target/debug/app.exe`
 
 ### 传统构建方式
@@ -187,7 +187,7 @@ src/                      # Vue 3 前端代码
   App.vue                 # 主应用组件（面试流程控制）
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
-  components/             # Vue 组件（39个）
+  components/             # Vue 组件（40个）
     ResumeInput.vue       # 简历输入组件（支持模板选择）
     JobDescription.vue    # 岗位描述输入组件（支持模板选择）
     TemplateSelector.vue  # 简历/JD模板选择器
@@ -287,6 +287,7 @@ ProductionDoc.md          # 产品文档
 - **HTTP 客户端**: reqwest（支持流式请求）
 - **异步运行时**: tokio
 - **SSE 解析**: eventsource-stream
+- **RAG 能力**: fastembed 5.x（本地嵌入模型）+ BGE-small-zh-v1.5（向量化）
 
 ## 功能特性
 
@@ -316,3 +317,4 @@ ProductionDoc.md          # 产品文档
   - 数据预加载: Pinia 缓存常用数据，减少加载延迟
   - 草稿自动保存: IndexedDB 本地存储，防止数据丢失
   - 环境区分: 测试模式仅在开发环境显示
+  - 智能知识增强（RAG）: 向量化知识库、语义检索、优雅降级
