@@ -8,6 +8,11 @@
 -->
 <template>
   <div class="voice-controls">
+    <!-- Network status warning -->
+    <div v-if="!isOnline" class="network-warning">
+      ⚠️ 网络已断开，语音功能需要网络连接才能使用
+    </div>
+    
     <div class="control-group">
       <!-- Record button -->
       <button
@@ -97,7 +102,7 @@
  * Manages recording and playback
  * Uses AudioRecorder + API for reliable transcription in Tauri builds
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { tts, stt, audioRecorder, AudioRecorder } from '../services/voice'
 import { transcribeAudio } from '../services/database'
 
@@ -123,6 +128,7 @@ const transcribeError = ref('')
 const webSpeechFailed = ref(false)
 const webSpeechTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const canCancelTranscription = ref(false)
+const isOnline = ref(navigator.onLine)
 let transcriptionAbortFlag = false
 
 const canPlayQuestion = computed(() => !!props.currentQuestion)
@@ -361,6 +367,21 @@ defineExpose({
   playText,
   stopAll
 })
+
+// Network status monitoring
+const handleOnlineStatusChange = () => {
+  isOnline.value = navigator.onLine
+}
+
+onMounted(() => {
+  window.addEventListener('online', handleOnlineStatusChange)
+  window.addEventListener('offline', handleOnlineStatusChange)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('online', handleOnlineStatusChange)
+  window.removeEventListener('offline', handleOnlineStatusChange)
+})
 </script>
 
 <style scoped>
@@ -573,5 +594,16 @@ defineExpose({
   background: #f5f5f5;
   border-color: #667eea;
   color: #667eea;
+}
+
+.network-warning {
+  padding: 0.8rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  color: #856404;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
 }
 </style>

@@ -198,6 +198,8 @@ CREATE INDEX IF NOT EXISTS idx_qba_hash ON question_best_answers(question_hash);
 CREATE INDEX IF NOT EXISTS idx_qba_needs_update ON question_best_answers(needs_update);
 CREATE INDEX IF NOT EXISTS idx_interview_answers_question ON interview_answers(question);
 CREATE INDEX IF NOT EXISTS idx_knowledge_type ON knowledge_vectors(content_type);
+CREATE INDEX IF NOT EXISTS idx_answers_session_question ON interview_answers(session_id, question_index);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_created ON interview_sessions(user_id, created_at);
 "#;
 
 /// Check if a column exists in a table

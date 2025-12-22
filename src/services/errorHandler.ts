@@ -3,8 +3,20 @@
  * Provides user-friendly error messages and offline handling
  */
 
+// Error code enumeration
+export enum ErrorCode {
+  UNKNOWN = 'UNKNOWN',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  TIMEOUT = 'TIMEOUT',
+  INVALID_API_KEY = 'INVALID_API_KEY',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  RATE_LIMIT = 'RATE_LIMIT',
+  SERVER_ERROR = 'SERVER_ERROR',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+}
+
 export interface ApiError {
-  code: string
+  code: ErrorCode
   message: string
   isRetryable: boolean
   isOffline: boolean
@@ -57,10 +69,25 @@ export function parseApiError(error: unknown): ApiError {
   }
 }
 
-function extractErrorCode(errorStr: string): string {
-  // Extract HTTP status code if present
-  const match = errorStr.match(/\b[45]\d{2}\b/)
-  return match ? match[0] : 'UNKNOWN'
+function extractErrorCode(errorStr: string): ErrorCode {
+  // Extract and map to error code enum
+  if (errorStr.includes('network') || errorStr.includes('connection') || errorStr.includes('fetch')) {
+    return ErrorCode.NETWORK_ERROR
+  } else if (errorStr.includes('timeout')) {
+    return ErrorCode.TIMEOUT
+  } else if (errorStr.includes('api key')) {
+    return ErrorCode.INVALID_API_KEY
+  } else if (errorStr.includes('401') || errorStr.includes('unauthorized')) {
+    return ErrorCode.UNAUTHORIZED
+  } else if (errorStr.includes('429')) {
+    return ErrorCode.RATE_LIMIT
+  } else if (errorStr.includes('500')) {
+    return ErrorCode.SERVER_ERROR
+  } else if (errorStr.includes('503') || errorStr.includes('504')) {
+    return ErrorCode.SERVICE_UNAVAILABLE
+  }
+  
+  return ErrorCode.UNKNOWN
 }
 
 /**
