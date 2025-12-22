@@ -7,6 +7,7 @@ use crate::api::siliconflow::SiliconFlowClient;
 
 /// Bootstrap progress status
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BootstrapProgress {
     pub current: usize,
     pub total: usize,
@@ -16,6 +17,7 @@ pub struct BootstrapProgress {
 
 /// Bootstrap result
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BootstrapResult {
     pub total_questions: usize,
     pub total_answers: usize,
@@ -42,6 +44,7 @@ pub struct KnowledgeStats {
 }
 
 /// JD template for question generation
+#[allow(dead_code)]
 struct JdTemplate {
     category: &'static str,
     name: &'static str,
@@ -91,6 +94,7 @@ pub struct KnowledgeBootstrap {
     api_client: SiliconFlowClient,
 }
 
+#[allow(dead_code)]
 impl KnowledgeBootstrap {
     /// Create new bootstrap instance
     pub fn new(

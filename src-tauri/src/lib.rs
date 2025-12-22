@@ -13,8 +13,10 @@ mod rag;
 
 use api::SiliconFlowClient;
 use api::siliconflow::SiliconFlowClient as SFClient;
+#[allow(unused_imports)]
 use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult, User, QuestionBestAnswer};
 use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
+#[allow(unused_imports)]
 use rag::{KnowledgeStatus, KnowledgeStats, BootstrapResult, BootstrapProgress, RagService};
 use rag::vectordb::SearchResult;
 use futures::StreamExt;

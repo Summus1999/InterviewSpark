@@ -1,6 +1,7 @@
 //! Embedding service using fastembed for text vectorization
 
 use anyhow::{Context, Result};
+#[allow(unused_imports)]
 use fastembed::{
     TextEmbedding, InitOptionsUserDefined, UserDefinedEmbeddingModel,
     TokenizerFiles, Pooling, QuantizationMode,
@@ -104,6 +105,7 @@ impl EmbeddingService {
     }
 
     /// Embed multiple texts in batch
+    #[allow(dead_code)]
     pub async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
         let mut model = self.model.lock().await;
         let embeddings = model

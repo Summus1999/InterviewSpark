@@ -18,6 +18,7 @@ const INIT_TIMEOUT: Duration = Duration::from_secs(10);
 struct RagInternals {
     embedding_service: EmbeddingService,
     vector_store: VectorStore,
+    #[allow(dead_code)]
     retriever: Retriever,
 }
 

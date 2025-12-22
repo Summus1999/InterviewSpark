@@ -164,6 +164,7 @@ impl VectorStore {
     }
 
     /// Delete vector by id
+    #[allow(dead_code)]
     pub async fn delete(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock().await;
         conn.execute("DELETE FROM knowledge_vectors WHERE id = ?1", [id])?;
@@ -171,6 +172,7 @@ impl VectorStore {
     }
 
     /// Count total vectors
+    #[allow(dead_code)]
     pub async fn count(&self) -> Result<i64> {
         let conn = self.conn.lock().await;
         let count: i64 = conn.query_row(
@@ -182,6 +184,7 @@ impl VectorStore {
     }
 
     /// Count vectors by type
+    #[allow(dead_code)]
     pub async fn count_by_type(&self, content_type: &str) -> Result<i64> {
         let conn = self.conn.lock().await;
         let count: i64 = conn.query_row(

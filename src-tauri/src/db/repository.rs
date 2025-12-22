@@ -1368,6 +1368,7 @@ impl Repository {
     }
 
     /// Insert a knowledge vector
+    #[allow(dead_code)]
     pub fn insert_knowledge_vector(
         &self,
         content_type: &str,
