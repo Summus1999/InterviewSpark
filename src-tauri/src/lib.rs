@@ -9,12 +9,15 @@
 mod api;
 mod db;
 mod analysis;
+mod rag;
 
 use api::SiliconFlowClient;
 use api::siliconflow::SiliconFlowClient as SFClient;
 #[allow(unused_imports)]
 use db::{init_database, Repository, Resume, JobDescription, InterviewSession, InterviewAnswer, QuestionBankItem, AnswerAnalysis, SessionReport, PerformanceStats, QuestionTag, InterviewProfile, RecommendationResult, BestPracticesResult, IndustryComparisonResult, User, QuestionBestAnswer};
 use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerator, ReportExporter, AnalyticsEngine, TrendAnalytics, DashboardService, DashboardData, BackupManager, CacheManager, ProfileGenerator, RecommendationEngine, BestPracticesExtractor, IndustryComparisonGenerator};
+use rag::{KnowledgeStatus, KnowledgeStats, BootstrapResult, BootstrapProgress, RagService};
+use rag::vectordb::SearchResult;
 use futures::StreamExt;
 use std::sync::{Arc, Mutex};
 use tauri::{State, Emitter};
@@ -28,10 +31,12 @@ use base64::Engine;
 ///
 /// The repository is wrapped in Arc for shared ownership across threads
 /// The cache manager provides high-performance caching for frequently accessed data
+/// The rag service provides lazy-initialized knowledge retrieval capabilities
 struct AppState {
     api_client: Mutex<Option<SiliconFlowClient>>,
     db: Arc<Repository>,
     cache: Arc<CacheManager>,
+    rag: Arc<RagService>,
 }
 
 /// Greet command for testing IPC communication between frontend and backend
@@ -70,8 +75,36 @@ async fn generate_questions(
         client_guard.clone().ok_or("API client not initialized")?
     };
     
+    // Try to retrieve similar questions from knowledge base as context
+    let context = if !state.rag.is_empty() {
+        match state.rag.retrieve_similar_questions(&job_description, 3).await {
+            Ok(results) => {
+                let context_text = RagService::build_context(&results, 500);
+                if !context_text.is_empty() {
+                    log::info!("RAG context: {} chars", context_text.len());
+                    Some(context_text)
+                } else {
+                    None
+                }
+            }
+            Err(e) => {
+                // Silent failure - RAG is optional enhancement
+                log::warn!("RAG retrieval failed (degrading gracefully): {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    
     client
-        .generate_questions(&resume, &job_description, count, &persona)
+        .generate_questions_with_context(
+            &resume, 
+            &job_description, 
+            count, 
+            &persona,
+            context.as_deref(),
+        )
         .await
         .map_err(|e| e.to_string())
 }
@@ -1227,6 +1260,217 @@ fn read_image_base64(file_path: String) -> Result<String, String> {
     Ok(format!("data:{};base64,{}", mime_type, base64_data))
 }
 
+// ===== RAG Knowledge Base Commands =====
+
+/// Get knowledge base status
+#[tauri::command]
+async fn get_knowledge_base_status(
+    state: State<'_, AppState>,
+) -> Result<KnowledgeStatus, String> {
+    let total = state.db.get_knowledge_count();
+    let question_count = state.db.get_knowledge_count_by_type("question");
+    let answer_count = state.db.get_knowledge_count_by_type("answer");
+    
+    Ok(KnowledgeStatus {
+        is_empty: total == 0,
+        question_count,
+        answer_count,
+    })
+}
+
+/// Get knowledge base stats
+#[tauri::command]
+async fn get_knowledge_base_stats(
+    state: State<'_, AppState>,
+) -> Result<KnowledgeStats, String> {
+    let total = state.db.get_knowledge_count();
+    let question_count = state.db.get_knowledge_count_by_type("question");
+    let answer_count = state.db.get_knowledge_count_by_type("answer");
+    let jd_count = state.db.get_knowledge_count_by_type("jd");
+    
+    Ok(KnowledgeStats {
+        total_vectors: total,
+        question_count,
+        answer_count,
+        jd_count,
+    })
+}
+
+/// Initialize knowledge base in background (non-blocking)
+/// Returns immediately, initialization runs asynchronously
+#[tauri::command]
+async fn init_knowledge_base_background(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Check if already initialized
+    let count = state.db.get_knowledge_count();
+    if count > 0 {
+        return Ok("Knowledge base already initialized".to_string());
+    }
+    
+    // Get API client
+    let api_client = {
+        let client_guard = state.api_client.lock().unwrap();
+        match client_guard.clone() {
+            Some(c) => c,
+            None => return Err("API client not configured".to_string()),
+        }
+    };
+    
+    // Clone rag service for async task
+    let rag = state.rag.clone();
+    
+    // Spawn background task
+    tokio::spawn(async move {
+        log::info!("Starting background knowledge base initialization...");
+        
+        // Emit start event
+        let _ = app.emit("knowledge-init-started", ());
+        
+        // Build empty index first to avoid "Index not built" warnings during generation
+        if let Err(e) = rag.rebuild_index().await {
+            log::warn!("Failed to build initial index: {}", e);
+        }
+        
+        // JD templates for question generation
+        let templates = vec![
+            ("frontend", "高级前端工程师", "岗位职责：负责核心产品前端开发。任职要求：3年以上前端经验，精通Vue.js和React。"),
+            ("backend", "高级后端工程师", "岗位职责：负责后端系统架构设计。任职要求：5年以上后端经验，精通Java/Go/Python。"),
+            ("pm", "产品经理", "岗位职责：负责产品模块的需求分析和设计。任职要求：2年以上产品经理经验。"),
+            ("fullstack", "全栈工程师", "岗位职责：同时负责前后端开发。任职要求：4年以上开发经验，掌握React/Vue和Node.js。"),
+            ("qa", "测试工程师", "岗位职责：负责产品功能和性能测试。任职要求：2年以上测试经验，掌握自动化测试。"),
+            ("devops", "DevOps工程师", "岗位职责：负责基础设施和CI/CD流程设计。任职要求：3年以上运维经验，精通Docker和K8s。"),
+        ];
+        
+        let questions_per_category = 5; // Reduced for faster init
+        let mut total_generated = 0;
+        
+        for (category, name, jd_content) in templates {
+            log::info!("Generating questions for: {}", name);
+            
+            // Generate questions
+            match api_client.generate_questions("", jd_content, questions_per_category, "friendly").await {
+                Ok(questions) => {
+                    for question in &questions {
+                        // Store question with embedding
+                        let metadata = serde_json::json!({
+                            "category": category,
+                            "jd_name": name,
+                        }).to_string();
+                        
+                        match rag.embed_and_store(
+                            "question",
+                            question,
+                            Some(&metadata),
+                        ).await {
+                            Ok(_) => {
+                                total_generated += 1;
+                            }
+                            Err(e) => {
+                                log::error!("Failed to embed and store question: {}", e);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to generate questions for {}: {}", category, e);
+                }
+            }
+            
+            // Small delay to avoid rate limiting
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+        
+        // Rebuild HNSW index after all inserts
+        if let Err(e) = rag.rebuild_index().await {
+            log::error!("Failed to rebuild index: {}", e);
+        }
+        
+        log::info!("Knowledge base initialization complete: {} items generated", total_generated);
+        
+        // Emit completion event
+        let _ = app.emit("knowledge-init-completed", total_generated);
+    });
+    
+    Ok("Knowledge base initialization started in background".to_string())
+}
+
+/// Search knowledge base
+#[tauri::command]
+async fn search_knowledge(
+    query: String,
+    content_type: Option<String>,
+    top_k: usize,
+    state: State<'_, AppState>,
+) -> Result<Vec<SearchResult>, String> {
+    // Delegate to appropriate retrieval method based on content type
+    let results = match content_type.as_deref() {
+        Some("question") => {
+            state.rag.retrieve_similar_questions(&query, top_k)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+        Some("answer") => {
+            state.rag.retrieve_best_answers(&query, top_k)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+        Some("jd") => {
+            state.rag.retrieve_similar_jd(&query, top_k)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+        _ => {
+            // Default to question search
+            state.rag.retrieve_similar_questions(&query, top_k)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+    };
+    
+    Ok(results)
+}
+
+/// Rebuild knowledge base HNSW index
+#[tauri::command]
+async fn rebuild_knowledge_index(
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    state.rag.rebuild_index()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    Ok("Knowledge index rebuilt successfully".to_string())
+}
+
+/// Recursively copy directory contents
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) {
+    if let Err(e) = std::fs::create_dir_all(dst) {
+        log::error!("Failed to create dir {:?}: {}", dst, e);
+        return;
+    }
+    
+    let entries = match std::fs::read_dir(src) {
+        Ok(e) => e,
+        Err(e) => {
+            log::error!("Failed to read dir {:?}: {}", src, e);
+            return;
+        }
+    };
+    
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let dest_path = dst.join(entry.file_name());
+        
+        if path.is_dir() {
+            copy_dir_recursive(&path, &dest_path);
+        } else if let Err(e) = std::fs::copy(&path, &dest_path) {
+            log::error!("Failed to copy {:?} to {:?}: {}", path, dest_path, e);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Load environment variables
@@ -1260,17 +1504,40 @@ pub fn run() {
       
       log::info!("Database path: {:?}", db_path);
       
-      let conn = init_database(db_path)
+      // Model directory for embedding
+      let model_dir = app_data_dir.join("models").join("bge-small-zh-v1.5");
+      
+      // Copy bundled model files if not exists
+      if !model_dir.join("onnx").join("model.onnx").exists() {
+        log::info!("Copying bundled embedding model to {:?}", model_dir);
+        if let Ok(resource_dir) = app.path().resource_dir() {
+          let bundled_model = resource_dir.join("resources").join("models").join("models--Xenova--bge-small-zh-v1.5");
+          if bundled_model.exists() {
+            copy_dir_recursive(&bundled_model, &model_dir);
+            log::info!("Bundled model copied successfully");
+          } else {
+            log::warn!("Bundled model not found at {:?}", bundled_model);
+          }
+        }
+      }
+      
+      log::info!("Embedding model dir: {:?}", model_dir);
+      
+      let conn = init_database(db_path.clone())
         .expect("Failed to initialize database");
       
       let repository = Arc::new(Repository::new(conn));
       let cache_manager = Arc::new(CacheManager::new());
+      
+      // Initialize RAG service (lazy-loaded on first use)
+      let rag_service = Arc::new(RagService::new(repository.clone(), db_path, model_dir));
       
       // Manage AppState in setup
       app.manage(AppState {
         api_client: Mutex::new(api_client.clone()),
         db: repository,
         cache: cache_manager,
+        rag: rag_service,
       });
       
       Ok(())
@@ -1345,7 +1612,12 @@ pub fn run() {
       upload_avatar,
       get_avatar_path,
       read_image_base64,
-      transcribe_audio
+      transcribe_audio,
+      get_knowledge_base_status,
+      get_knowledge_base_stats,
+      init_knowledge_base_background,
+      search_knowledge,
+      rebuild_knowledge_index
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

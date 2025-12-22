@@ -1344,4 +1344,45 @@ impl Repository {
         
         Ok(results)
     }
+
+    // ===== Knowledge Base Operations =====
+
+    /// Get total count of knowledge vectors
+    pub fn get_knowledge_count(&self) -> i64 {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM knowledge_vectors",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0)
+    }
+
+    /// Get count of knowledge vectors by type
+    pub fn get_knowledge_count_by_type(&self, content_type: &str) -> i64 {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM knowledge_vectors WHERE content_type = ?1",
+            params![content_type],
+            |row| row.get(0),
+        ).unwrap_or(0)
+    }
+
+    /// Insert a knowledge vector
+    pub fn insert_knowledge_vector(
+        &self,
+        content_type: &str,
+        content: &str,
+        embedding: &[u8],
+        metadata: Option<&str>,
+    ) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let now = now();
+        
+        conn.execute(
+            "INSERT INTO knowledge_vectors (content_type, content, embedding, metadata, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![content_type, content, embedding, metadata, now],
+        )?;
+        
+        Ok(conn.last_insert_rowid())
+    }
 }

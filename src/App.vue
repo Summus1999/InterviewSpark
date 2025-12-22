@@ -314,7 +314,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import ResumeInput from './components/ResumeInput.vue'
 import JobDescription from './components/JobDescription.vue'
@@ -340,7 +340,7 @@ import OnboardingGuide from './components/OnboardingGuide.vue'
 import TooltipBubble from './components/TooltipBubble.vue'
 import STARScoreDisplay from './components/STARScoreDisplay.vue'
 import ActivityView from './components/ActivityView.vue'
-import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, markBestAnswerNeedsUpdate, type STARScoringResult } from './services/database'
+import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, markBestAnswerNeedsUpdate, initKnowledgeBaseBackground, type STARScoringResult } from './services/database'
 import { tts, stt } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
 import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
@@ -401,6 +401,17 @@ const reportLoading = ref(false)
 // STAR scoring state (deprecated - will be in final report)
 const starScore = ref<STARScoringResult | null>(null)
 const showSTARScore = ref(false)
+
+// Background knowledge base initialization on app startup
+onMounted(async () => {
+  try {
+    const result = await initKnowledgeBaseBackground()
+    console.log('Knowledge base init:', result)
+  } catch (err) {
+    // Silent fail - knowledge base is optional enhancement
+    console.warn('Knowledge base init skipped:', err)
+  }
+})
 
 const canGenerate = computed(() => {
   return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20

@@ -299,12 +299,30 @@ impl SiliconFlowClient {
         count: u32,
         persona: &str,
     ) -> Result<Vec<String>> {
+        self.generate_questions_with_context(resume, job_description, count, persona, None).await
+    }
+
+    /// Generate questions with optional RAG context
+    pub async fn generate_questions_with_context(
+        &self,
+        resume: &str,
+        job_description: &str,
+        count: u32,
+        persona: &str,
+        context: Option<&str>,
+    ) -> Result<Vec<String>> {
         let base_prompt = Self::get_persona_prompt(persona);
         let system_prompt = format!("{} You MUST respond with ONLY a valid JSON array, no additional text or explanations.", base_prompt);
         
+        let context_section = if let Some(ctx) = context {
+            format!("\n\nReference Questions from Knowledge Base:\n{}\n\nYou can refer to the above examples but should generate new, relevant questions based on the provided resume and job description.", ctx)
+        } else {
+            String::new()
+        };
+        
         let user_prompt = format!(
-            "Based on the following resume and job description, generate exactly {} relevant interview questions.\n\nResume:\n{}\n\nJob Description:\n{}\n\nIMPORTANT: Return ONLY a JSON array of strings. No explanations, no markdown, just the array. Format: [\"question1\", \"question2\", ...]\n\n重要提示：只返回JSON数组，不要任何解释说明。",
-            count, resume, job_description
+            "Based on the following resume and job description, generate exactly {} relevant interview questions.{}\n\nResume:\n{}\n\nJob Description:\n{}\n\nIMPORTANT: Return ONLY a JSON array of strings. No explanations, no markdown, just the array. Format: [\"question1\", \"question2\", ...]\n\n重要提示：只返回JSON数组，不要任何解释说明。",
+            count, context_section, resume, job_description
         );
 
         let messages = vec![

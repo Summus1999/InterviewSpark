@@ -11,13 +11,17 @@
   
   ; Manual uninstall: ask user whether to keep data
   MessageBox MB_YESNO|MB_ICONQUESTION \
-    "是否删除所有用户数据（面试记录、题库等）？$\n$\n选择「否」将保留数据，下次安装可继续使用。" \
-    IDNO SkipDataRemoval
+    "是否保留用户数据（面试记录、题库等）？$\n$\n选择「是」保留数据，下次安装可继续使用。" \
+    IDYES SkipDataRemoval
   
-  ; User chose to delete data
+  ; User chose NO = delete data
   DetailPrint "Removing user data from AppData..."
   RMDir /r "$APPDATA\com.interviewspark.app"
+  DetailPrint "User data removed."
+  Goto EndDataCheck
   
   SkipDataRemoval:
     DetailPrint "User data preserved."
+  
+  EndDataCheck:
 !macroend

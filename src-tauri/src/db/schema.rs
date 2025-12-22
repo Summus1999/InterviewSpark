@@ -170,6 +170,16 @@ CREATE TABLE IF NOT EXISTS question_best_answers (
     updated_at TEXT NOT NULL
 );
 
+-- Knowledge vectors table for RAG (Retrieval-Augmented Generation)
+CREATE TABLE IF NOT EXISTS knowledge_vectors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    embedding BLOB NOT NULL,
+    metadata TEXT,
+    created_at TEXT NOT NULL
+);
+
 -- Create indices for performance optimization
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
@@ -187,6 +197,7 @@ CREATE INDEX IF NOT EXISTS idx_tag_mappings_tag_id ON question_tag_mappings(tag_
 CREATE INDEX IF NOT EXISTS idx_qba_hash ON question_best_answers(question_hash);
 CREATE INDEX IF NOT EXISTS idx_qba_needs_update ON question_best_answers(needs_update);
 CREATE INDEX IF NOT EXISTS idx_interview_answers_question ON interview_answers(question);
+CREATE INDEX IF NOT EXISTS idx_knowledge_type ON knowledge_vectors(content_type);
 "#;
 
 /// Check if a column exists in a table

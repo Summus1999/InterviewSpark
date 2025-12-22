@@ -637,3 +637,50 @@ export async function getAvatarPath(avatarPath: string): Promise<string> {
 export async function readImageBase64(filePath: string): Promise<string> {
   return await invoke('read_image_base64', { filePath })
 }
+
+// ===== Knowledge Base Operations =====
+
+export interface KnowledgeStatus {
+  is_empty: boolean
+  question_count: number
+  answer_count: number
+}
+
+export interface KnowledgeStats {
+  total_vectors: number
+  question_count: number
+  answer_count: number
+  jd_count: number
+}
+
+export async function getKnowledgeBaseStatus(): Promise<KnowledgeStatus> {
+  return await invoke('get_knowledge_base_status')
+}
+
+export async function getKnowledgeBaseStats(): Promise<KnowledgeStats> {
+  return await invoke('get_knowledge_base_stats')
+}
+
+export async function initKnowledgeBaseBackground(): Promise<string> {
+  return await invoke('init_knowledge_base_background')
+}
+
+export interface SearchResult {
+  id: number
+  content: string
+  content_type: string
+  metadata: string | null
+  similarity: number
+}
+
+export async function searchKnowledge(
+  query: string,
+  contentType?: string,
+  topK: number = 5
+): Promise<SearchResult[]> {
+  return await invoke('search_knowledge', { query, contentType, topK })
+}
+
+export async function rebuildKnowledgeIndex(): Promise<string> {
+  return await invoke('rebuild_knowledge_index')
+}
