@@ -1397,27 +1397,50 @@ impl Repository {
         let conn = self.conn.lock().unwrap();
         let offset = (page - 1) * page_size;
         
-        let mut sql = "SELECT id, content_type, content, metadata, created_at FROM knowledge_vectors".to_string();
-        
-        if let Some(ct) = content_type_filter {
-            sql.push_str(&format!(" WHERE content_type = '{}'", ct));
+        // Use parameterized queries to prevent SQL injection
+        match content_type_filter {
+            Some(ct) => {
+                let mut stmt = conn.prepare(
+                    "SELECT id, content_type, content, metadata, created_at 
+                     FROM knowledge_vectors 
+                     WHERE content_type = ?1 
+                     ORDER BY created_at DESC 
+                     LIMIT ?2 OFFSET ?3"
+                )?;
+                let entries = stmt
+                    .query_map(params![ct, page_size, offset], |row| {
+                        Ok(crate::db::models::KnowledgeEntry {
+                            id: row.get(0)?,
+                            content_type: row.get(1)?,
+                            content: row.get(2)?,
+                            metadata: row.get(3)?,
+                            created_at: row.get(4)?,
+                        })
+                    })?
+                    .collect::<std::result::Result<Vec<_>, _>>()?;
+                Ok(entries)
+            }
+            None => {
+                let mut stmt = conn.prepare(
+                    "SELECT id, content_type, content, metadata, created_at 
+                     FROM knowledge_vectors 
+                     ORDER BY created_at DESC 
+                     LIMIT ?1 OFFSET ?2"
+                )?;
+                let entries = stmt
+                    .query_map(params![page_size, offset], |row| {
+                        Ok(crate::db::models::KnowledgeEntry {
+                            id: row.get(0)?,
+                            content_type: row.get(1)?,
+                            content: row.get(2)?,
+                            metadata: row.get(3)?,
+                            created_at: row.get(4)?,
+                        })
+                    })?
+                    .collect::<std::result::Result<Vec<_>, _>>()?;
+                Ok(entries)
+            }
         }
-        
-        sql.push_str(" ORDER BY created_at DESC LIMIT ?1 OFFSET ?2");
-        
-        let mut stmt = conn.prepare(&sql)?;
-        let entries = stmt.query_map(params![page_size, offset], |row| {
-            Ok(crate::db::models::KnowledgeEntry {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                content: row.get(2)?,
-                metadata: row.get(3)?,
-                created_at: row.get(4)?,
-            })
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-        
-        Ok(entries)
     }
 
     /// Delete knowledge entry by id
