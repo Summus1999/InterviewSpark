@@ -1457,4 +1457,22 @@ impl Repository {
         
         Ok(entries)
     }
+
+    /// Delete knowledge entries by source metadata
+    pub fn delete_knowledge_by_source(
+        &self,
+        source_type: &str,
+        source_id: i64,
+    ) -> Result<usize> {
+        let conn = self.conn.lock().unwrap();
+        let source_pattern = format!("%\"source\":\"{}\"%", source_type);
+        let id_pattern = format!("%\"source_id\":{}", source_id);
+        
+        let count = conn.execute(
+            "DELETE FROM knowledge_vectors WHERE metadata LIKE ?1 AND metadata LIKE ?2",
+            params![source_pattern, id_pattern],
+        )?;
+        
+        Ok(count)
+    }
 }

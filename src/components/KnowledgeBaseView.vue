@@ -1,10 +1,15 @@
 <template>
   <div class="knowledge-base-view">
     <div class="header">
-      <h2>知识库管理</h2>
-      <button @click="showImport = !showImport" class="import-toggle-btn">
-        {{ showImport ? '隐藏导入' : '导入知识' }}
-      </button>
+      <h2>RAG 知识引擎</h2>
+      <div class="header-actions">
+        <button @click="handleSync" class="sync-btn" :disabled="syncing">
+          {{ syncing ? '同步中...' : '同步题库' }}
+        </button>
+        <button @click="showImport = !showImport" class="import-toggle-btn">
+          {{ showImport ? '隐藏导入' : '导入知识' }}
+        </button>
+      </div>
     </div>
 
     <KnowledgeImport v-if="showImport" @import-complete="handleImportComplete" />
@@ -111,12 +116,14 @@ import {
   deleteKnowledgeEntry,
   searchKnowledgeByKeyword,
   getKnowledgeBaseStats,
+  syncQuestionBankToKnowledge,
   type KnowledgeEntry,
   type KnowledgeStats
 } from '../services/database'
 
 const showImport = ref(false)
 const loading = ref(false)
+const syncing = ref(false)
 const entries = ref<KnowledgeEntry[]>([])
 const stats = ref<KnowledgeStats | null>(null)
 const currentPage = ref(1)
@@ -207,6 +214,21 @@ function handleImportComplete() {
   loadEntries()
 }
 
+async function handleSync() {
+  syncing.value = true
+  try {
+    const result = await syncQuestionBankToKnowledge()
+    alert('同步完成：' + result)
+    await loadStats()
+    await loadEntries()
+  } catch (error) {
+    console.error('Sync failed:', error)
+    alert('同步失败：' + error)
+  } finally {
+    syncing.value = false
+  }
+}
+
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleString('zh-CN', {
@@ -276,6 +298,12 @@ function formatMetadata(metadata: string | null): string {
   color: var(--text-primary);
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.sync-btn,
 .import-toggle-btn {
   padding: 10px 20px;
   background: var(--primary-color);
@@ -287,8 +315,14 @@ function formatMetadata(metadata: string | null): string {
   transition: background 0.2s;
 }
 
+.sync-btn:hover:not(:disabled),
 .import-toggle-btn:hover {
   background: var(--primary-hover);
+}
+
+.sync-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .stats-cards {

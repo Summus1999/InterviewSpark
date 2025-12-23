@@ -354,15 +354,37 @@ fn db_get_answers(session_id: i64, state: State<'_, AppState>) -> Result<Vec<Int
 
 /// Add question to bank
 #[tauri::command]
-fn db_add_to_bank(
+async fn db_add_to_bank(
     question: String,
     best_answer: Option<String>,
     notes: Option<String>,
     job_category: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<i64, String> {
-    state.db.add_to_question_bank(question, best_answer, notes, job_category)
-        .map_err(|e| e.to_string())
+    let question_id = state.db.add_to_question_bank(
+        question.clone(), 
+        best_answer.clone(), 
+        notes.clone(), 
+        job_category.clone()
+    ).map_err(|e| e.to_string())?;
+    
+    // Sync to knowledge base (RAG)
+    let metadata = serde_json::json!({
+        "source": "question_bank",
+        "source_id": question_id,
+        "job_category": job_category
+    }).to_string();
+    
+    match state.rag.embed_and_store(
+        "user_question",
+        &question,
+        Some(&metadata)
+    ).await {
+        Ok(_) => log::info!("Question synced to knowledge base: {}", question_id),
+        Err(e) => log::warn!("Failed to sync question to knowledge base: {}", e)
+    }
+    
+    Ok(question_id)
 }
 
 /// Get question bank
@@ -386,9 +408,27 @@ fn db_update_bank_item(
 
 /// Delete from question bank
 #[tauri::command]
-fn db_delete_from_bank(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+async fn db_delete_from_bank(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    // Delete from knowledge base first (by metadata source_id)
+    match state.db.delete_knowledge_by_source("question_bank", id) {
+        Ok(count) => {
+            if count > 0 {
+                log::info!("Deleted {} knowledge entries for question_bank id {}", count, id);
+            }
+        }
+        Err(e) => log::warn!("Failed to delete knowledge entries: {}", e)
+    }
+    
+    // Delete from question bank
     state.db.delete_from_question_bank(id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    
+    // Rebuild index after deletion
+    if let Err(e) = state.rag.rebuild_index().await {
+        log::warn!("Failed to rebuild RAG index: {}", e);
+    }
+    
+    Ok(())
 }
 
 // ===== Question Tag Commands =====
@@ -1522,6 +1562,55 @@ async fn import_knowledge_file(
     Ok(result)
 }
 
+/// Sync existing question bank to knowledge base
+#[tauri::command]
+async fn sync_question_bank_to_knowledge(
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let questions = state.db.get_question_bank()
+        .map_err(|e| e.to_string())?;
+    
+    let mut success = 0;
+    let mut skipped = 0;
+    
+    for item in questions {
+        let question_id = item.id.unwrap_or(0);
+        
+        // Check if already synced
+        let metadata_check = format!("\"source_id\":{}", question_id);
+        if let Ok(entries) = state.db.search_knowledge_by_keyword(&metadata_check, 1) {
+            if !entries.is_empty() {
+                skipped += 1;
+                continue;
+            }
+        }
+        
+        // Sync to knowledge base
+        let metadata = serde_json::json!({
+            "source": "question_bank",
+            "source_id": question_id,
+            "job_category": item.job_category
+        }).to_string();
+        
+        match state.rag.embed_and_store(
+            "user_question",
+            &item.question,
+            Some(&metadata)
+        ).await {
+            Ok(_) => success += 1,
+            Err(e) => log::warn!("Failed to sync question {}: {}", question_id, e)
+        }
+    }
+    
+    // Rebuild index
+    if success > 0 {
+        state.rag.rebuild_index().await
+            .map_err(|e| e.to_string())?;
+    }
+    
+    Ok(format!("Synced: {}, Skipped: {}", success, skipped))
+}
+
 /// Recursively copy directory contents
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) {
     if let Err(e) = std::fs::create_dir_all(dst) {
@@ -1699,7 +1788,8 @@ pub fn run() {
       list_knowledge_entries,
       delete_knowledge_entry,
       search_knowledge_by_keyword,
-      import_knowledge_file
+      import_knowledge_file,
+      sync_question_bank_to_knowledge
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

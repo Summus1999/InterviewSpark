@@ -58,8 +58,8 @@
             <button @click="currentMode = 'dashboard'" :class="{ active: currentMode === 'dashboard' }" class="mode-btn">
               用户
             </button>
-            <button @click="currentMode = 'knowledge'" :class="{ active: currentMode === 'knowledge' }" class="mode-btn">
-              知识库
+            <button v-if="isDev" @click="currentMode = 'knowledge'" :class="{ active: currentMode === 'knowledge' }" class="mode-btn">
+              RAG引擎
             </button>
             <button v-if="isDev" @click="showTest = true" class="toggle-btn">
               测试模式
@@ -442,7 +442,7 @@ const modeTitle = computed(() => {
     case 'dashboard': return '用户'
     case 'analysis': return '分析'
     case 'activity': return '活跃度'
-    case 'knowledge': return '知识库管理'
+    case 'knowledge': return 'RAG 知识引擎'
     default: return '模拟面试'
   }
 })

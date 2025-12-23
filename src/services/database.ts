@@ -725,3 +725,7 @@ export async function searchKnowledgeByKeyword(
 export async function importKnowledgeFile(filePath: string): Promise<ImportResult> {
   return await invoke('import_knowledge_file', { filePath })
 }
+
+export async function syncQuestionBankToKnowledge(): Promise<string> {
+  return await invoke('sync_question_bank_to_knowledge')
+}
