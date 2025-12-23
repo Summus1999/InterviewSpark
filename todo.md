@@ -14,19 +14,20 @@
 
 ## Phase 7: AI 反馈质量体系、RAG 能力增强（当前重点）
 
-### 模块 1: RAG 知识库管理（P0）
+### 模块 1: RAG 知识库管理（P0）✅ 已完成
 
 | 序号 | 功能                     | 状态 | 说明                                         |
 |------|--------------------------|------|----------------------------------------------|
-| 1.1  | knowledge_entries 表结构 | [ ]  | 新增表，存储知识条目内容、向量、来源 |
-| 1.2  | 知识库 CRUD 函数 | [ ]  | Repository 实现后端查询、导入、删除 |
-| 1.3  | list_knowledge_entries | [ ]  | 分页查询知识条目 |
-| 1.4  | search_knowledge() | [ ]  | 语义搜索功能 |
-| 1.5  | import_knowledge_from_file | [ ]  | 从 JSON/TXT 导入知识 |
-| 1.6  | KnowledgeBaseView.vue | [ ]  | 知识库管理页面 |
-| 1.7  | KnowledgeImport.vue | [ ]  | 知识导入组件 |
-| 1.8  | RAG 检索可视化 | [ ]  | 展示检索的知识片段与相似度 |
-| 1.9  | 知识库导航 | [ ]  | 在应用中添加知识库入口 |
+| 1.1  | knowledge_vectors 表结构 | [x]  | 已有表，存储知识向量、内容、来源元数据 |
+| 1.2  | 知识库 CRUD 函数 | [x]  | Repository 实现查询、删除、搜索 |
+| 1.3  | list_knowledge_entries | [x]  | 分页查询知识条目（不含 embedding） |
+| 1.4  | search_knowledge() | [x]  | 语义搜索 + 关键字搜索 |
+| 1.5  | import_knowledge_from_file | [x]  | 从 JSON/TXT 导入知识 |
+| 1.6  | KnowledgeBaseView.vue | [x]  | RAG 知识引擎管理页面 |
+| 1.7  | KnowledgeImport.vue | [x]  | 知识导入组件 |
+| 1.8  | RAG 检索可视化 | [ ]  | 展示检索的知识片段与相似度（规划中） |
+| 1.9  | 知识库导航 | [x]  | 开发模式下显示 RAG 引擎入口 |
+| 1.10 | 题库自动同步 RAG | [x]  | 题库问题自动向量化并同步到知识库 |
 
 ### 模块 2: Prompt 工程优化（P0）
 
@@ -103,14 +104,15 @@
 
 | 分类            | 数量 |
 |-----------------|------|
-| Phase 7.1 RAG 管理 | 9    |
+| Phase 7.1 RAG 管理 | 10   |
 | Phase 7.2 Prompt | 3    |
 | Phase 7.3 反馈展示 | 5    |
 | Phase 7.4 一致性 | 3    |
 | Phase 7.5 进化 | 3    |
 | 已完成功能      | 7    |
 | 低优先级待实施  | 5    |
-| 总计            | 35   |
+| 总计            | 36   |
+| **Phase 7.1 完成度** | **9/10 (90%)** |
 
 ---
 
