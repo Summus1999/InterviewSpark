@@ -23,11 +23,14 @@ npm install
 1. 注册硅基流动账号：<https://cloud.siliconflow.cn>
 2. 获取 API Key
 3. 复制 `.env.example` 为 `.env`：
+
    ```bash
    cp .env.example .env
    ```
+
 4. 编辑 `.env` 文件，填入你的 API Key：
-   ```
+
+   ```env
    SILICONFLOW_API_KEY=sk-xxxxxxxxxx
    ```
 
@@ -56,6 +59,7 @@ npm run format
 ### 快速验证
 
 1. **启动开发环境**
+
    ```bash
    npm run tauri:dev
    ```
@@ -83,6 +87,7 @@ npm run format
    - **注意**: 需要浏览器支持 (Chrome/Edge 推荐)
 
 5. **编译测试**
+
    ```bash
    # 前端构建
    npm run build
@@ -121,6 +126,7 @@ npm run build:release
 ```
 
 构建产物位于 `src-tauri/target/release/bundle/`：
+
 - NSIS 安装包: `bundle/nsis/InterviewSpark_1.0.2_x64-setup.exe`
 - 独立 exe（build:dev/test）: `target/release/app.exe` 或 `target/debug/app.exe`
 
@@ -142,6 +148,7 @@ npm run release
 首次构建时，Tauri 需要下载 NSIS 打包工具。国内网络可能下载失败，可手动配置：
 
 **NSIS 离线安装**:
+
 - 下载以下文件:
   - <https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip>
   - <https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.1.1/nsis_tauri_utils.dll>
@@ -169,6 +176,7 @@ npm run release
 ## 数据存储位置
 
 安装后应用数据存储在用户目录：
+
 - Windows: `C:\Users\{用户名}\AppData\Roaming\com.interviewspark.app\`
   - `data/interview_spark.db` - SQLite 数据库
   - `avatars/` - 用户头像
@@ -176,6 +184,7 @@ npm run release
 ### 卸载行为
 
 **重要**: 卸载应用时，系统会自动删除以下目录及所有数据：
+
 - `C:\Users\{用户名}\AppData\Roaming\com.interviewspark.app\`
 
 如需保留数据，请在卸载前使用应用内的"数据备份"功能导出数据（历史记录页面 → 备份数据按钮）。导出的 JSON 文件可在重新安装后导入。
