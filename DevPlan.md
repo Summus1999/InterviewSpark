@@ -929,17 +929,46 @@ Phase 5.5 (多用户与活跃度系统)
 
 ---
 
-## Phase 7: AI 反馈质量体系
+## Phase 7: AI 反馈质量体系与 RAG 能力增强
 
-**目标**: 提升 AI 反馈的可操作性和一致性，让用户获得真正有价值的改进建议。
+**目标**: 提升 AI 反馈的可操作性和一致性，完善 RAG 知识库管理，让用户获得真正有价值的改进建议和透明的知识检索体验。
 
-**周期**: Week 13-15
+**周期**: Week 13-16
 
 **状态**: ⭕ 待实施
 
 ### 功能清单
 
-#### 模块 1: Prompt 工程优化（P0 高优先级）
+#### 模块 1: RAG 知识库管理（P0 高优先级）
+
+- [ ] 知识库数据结构
+  - 新增 `knowledge_entries` 表（id, content, embedding, source, created_at, user_id）
+  - 新增 `KnowledgeEntry` 数据模型
+  - 实现知识条目 CRUD Repository 函数
+
+- [ ] 知识库查询后端
+  - 实现 `list_knowledge_entries()` 分页查询
+  - 实现 `search_knowledge()` 语义搜索
+  - 实现 `delete_knowledge()` 删除知识条目
+  - 在 `lib.rs` 暴露 Tauri 命令
+
+- [ ] 知识导入功能
+  - 实现 `import_knowledge_from_file()` 从 JSON/TXT 文件导入
+  - 自动向量化导入的知识
+  - 支持批量导入
+
+- [ ] 前端知识库管理界面
+  - 创建 `KnowledgeBaseView.vue` 知识库浏览页面
+  - 创建 `KnowledgeImport.vue` 导入组件
+  - 显示知识条目列表、搜索、删除功能
+  - 显示向量库统计（总数、最近更新时间）
+
+- [ ] RAG 检索可视化
+  - 在问题生成结果中展示检索到的相关知识片段
+  - 显示检索相似度分数
+  - 关键词高亮显示
+
+#### 模块 2: Prompt 工程优化（P0 高优先级）
 
 - [ ] 重构 analyze_answer Prompt
   - 将输出格式从纯文本改为结构化 JSON
@@ -959,7 +988,7 @@ Phase 5.5 (多用户与活跃度系统)
   - 动态注入行业特化评估要点到 Prompt
   - 位置：`src-tauri/src/api/siliconflow.rs`
 
-#### 模块 2: 结构化反馈展示（P0 高优先级）
+#### 模块 3: 结构化反馈展示（P0 高优先级）
 
 - [ ] 评分展示组件
   - 创建 `FeedbackScore.vue` 组件
@@ -968,7 +997,7 @@ Phase 5.5 (多用户与活跃度系统)
 
 - [ ] 亮点展示组件
   - 创建 `FeedbackStrengths.vue` 组件
-  - 绿色卡片展示优点，引用原文高亮
+  - 绿色卡片展示回答优点，引用原文高亮显示
   - 位置：`src/components/FeedbackStrengths.vue`
 
 - [ ] 改进建议组件
@@ -978,7 +1007,7 @@ Phase 5.5 (多用户与活跃度系统)
 
 - [ ] 岗位匹配度组件
   - 创建 `JobMatchIndicator.vue` 组件
-  - 标签云展示命中关键词 + 缺失要点提示
+  - 标签云展示命中的岗位关键词 + 缺失要点提示
   - 位置：`src/components/JobMatchIndicator.vue`
 
 - [ ] 重构 FeedbackDisplay.vue
@@ -987,7 +1016,7 @@ Phase 5.5 (多用户与活跃度系统)
   - 兼容旧版纯文本格式（降级显示）
   - 位置：`src/components/FeedbackDisplay.vue`
 
-#### 模块 3: 反馈一致性保障（P1 中优先级）
+#### 模块 4: 反馈一致性保障（P1 中优先级）
 
 - [ ] 评分校准机制
   - 实现 `calibrate_score()` 函数
@@ -1005,7 +1034,7 @@ Phase 5.5 (多用户与活跃度系统)
   - 第二次重试：降低 temperature 到 0.3
   - 仍失败：回退到简化版反馈模板
 
-#### 模块 4: 反馈进化机制（P1 中优先级）
+#### 模块 5: 反馈进化机制（P1 中优先级）
 
 - [ ] 反馈评价 UI
   - 在 FeedbackDisplay.vue 底部添加评价按钮
@@ -1026,28 +1055,41 @@ Phase 5.5 (多用户与活跃度系统)
 ### 实施检查清单
 
 ```
-Phase A: Prompt 优化（Week 13）
-1.  [ ] 重写 analyze_answer user_prompt（结构化 JSON 输出）
-2.  [ ] 扩展 get_persona_prompt（4 种人设详细描述）
-3.  [ ] 新增 detect_industry() 行业识别函数
-4.  [ ] 编写行业特化 Prompt 模板
-5.  [ ] 后端编译验证
+Phase 7.1 RAG 知识库管理:
+1.  [ ] 创建 knowledge_entries 表结构
+2.  [ ] 新增 KnowledgeEntry 数据模型
+3.  [ ] 实现知识库 CRUD Repository 函数
+4.  [ ] 实现 list_knowledge_entries() 分页查询
+5.  [ ] 实现 search_knowledge() 语义搜索
+6.  [ ] 实现 import_knowledge_from_file() 导入功能
+7.  [ ] 暴露 5 个知识库管理 Tauri 命令
+8.  [ ] 创建 KnowledgeBaseView.vue 浏览页面
+9.  [ ] 创建 KnowledgeImport.vue 导入组件
+10. [ ] 在问题生成结果中展示 RAG 检索来源
+11. [ ] 添加知识库导航入口
 
-Phase B: 前端结构化展示（Week 14）
-6.  [ ] 创建 FeedbackScore.vue 组件
-7.  [ ] 创建 FeedbackStrengths.vue 组件
-8.  [ ] 创建 FeedbackImprovements.vue 组件
-9.  [ ] 创建 JobMatchIndicator.vue 组件
-10. [ ] 重构 FeedbackDisplay.vue 集成新组件
-11. [ ] 前端编译验证
+Phase 7.2.A Prompt 优化（Week 13）
+12. [ ] 重写 analyze_answer user_prompt（结构化 JSON 输出）
+13. [ ] 扩展 get_persona_prompt（4 种人设详细描述）
+14. [ ] 新增 detect_industry() 行业识别函数
+15. [ ] 编写行业特化 Prompt 模板
+16. [ ] 后端编译验证
 
-Phase C: 一致性保障（Week 15）
-12. [ ] 实现 validate_feedback() 格式检测
-13. [ ] 实现 calibrate_score() 评分融合
-14. [ ] 实现格式失败重试策略
-15. [ ] 添加反馈评价 UI
-16. [ ] 实现评价数据存储
-17. [ ] 集成测试
+Phase 7.2.B 前端结构化展示（Week 14）
+17. [ ] 创建 FeedbackScore.vue 组件
+18. [ ] 创建 FeedbackStrengths.vue 组件
+19. [ ] 创建 FeedbackImprovements.vue 组件
+20. [ ] 创建 JobMatchIndicator.vue 组件
+21. [ ] 重构 FeedbackDisplay.vue 集成新组件
+22. [ ] 前端编译验证
+
+Phase 7.2.C 一致性保障（Week 15）
+23. [ ] 实现 validate_feedback() 格式检测
+24. [ ] 实现 calibrate_score() 评分融合
+25. [ ] 实现格式失败重试策略
+26. [ ] 添加反馈评价 UI
+27. [ ] 实现评价数据存储
+28. [ ] 集成测试
 ```
 
 ### 交付标准
@@ -1056,6 +1098,8 @@ Phase C: 一致性保障（Week 15）
 - 每条 improvement 都有 issue + reason + example
 - JSON 解析成功率 > 98%
 - 用户“有帮助”评价占比 > 70%
+- 知识库支持导入、查看、搜索、删除功能
+- RAG 检索结果透明可视，用户了解程序是如何优化问题的
 
 ---
 

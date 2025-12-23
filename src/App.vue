@@ -58,6 +58,9 @@
             <button @click="currentMode = 'dashboard'" :class="{ active: currentMode === 'dashboard' }" class="mode-btn">
               用户
             </button>
+            <button @click="currentMode = 'knowledge'" :class="{ active: currentMode === 'knowledge' }" class="mode-btn">
+              知识库
+            </button>
             <button v-if="isDev" @click="showTest = true" class="toggle-btn">
               测试模式
             </button>
@@ -281,6 +284,11 @@
         <div v-if="currentMode === 'activity'">
           <ActivityView />
         </div>
+
+        <!-- Knowledge Base Mode -->
+        <div v-if="currentMode === 'knowledge'">
+          <KnowledgeBaseView />
+        </div>
       </section>
     </main>
     
@@ -344,6 +352,7 @@ import OnboardingGuide from './components/OnboardingGuide.vue'
 import TooltipBubble from './components/TooltipBubble.vue'
 import STARScoreDisplay from './components/STARScoreDisplay.vue'
 import ActivityView from './components/ActivityView.vue'
+import KnowledgeBaseView from './components/KnowledgeBaseView.vue'
 import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, markBestAnswerNeedsUpdate, initKnowledgeBaseBackground, type STARScoringResult } from './services/database'
 import { tts, stt } from './services/voice'
 import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
@@ -359,7 +368,7 @@ const greeting = ref('')
 const showTest = ref(false)
 
 // Mode management
-const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard' | 'analysis' | 'activity'>('interview')
+const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard' | 'analysis' | 'activity' | 'knowledge'>('interview')
 const analysisView = ref<'profile' | 'recommendation' | 'best-practices' | 'industry'>('profile')
 
 // Phase 2 interview variables
@@ -433,6 +442,7 @@ const modeTitle = computed(() => {
     case 'dashboard': return '用户'
     case 'analysis': return '分析'
     case 'activity': return '活跃度'
+    case 'knowledge': return '知识库管理'
     default: return '模拟面试'
   }
 })

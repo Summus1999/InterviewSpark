@@ -296,7 +296,7 @@ ProductionDoc.md          # 产品文档
 - **HTTP 客户端**: reqwest（支持流式请求）
 - **异步运行时**: tokio
 - **SSE 解析**: eventsource-stream
-- **RAG 能力**: fastembed 5.x（本地嵌入模型）+ BGE-small-zh-v1.5（向量化）
+- **RAG 能力**: fastembed 5.x（本地嵌入模型）+ BGE-small-zh-v1.5（向量化）、知识库管理、语义检索
 
 ## 功能特性
 

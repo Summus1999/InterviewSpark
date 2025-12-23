@@ -684,3 +684,44 @@ export async function searchKnowledge(
 export async function rebuildKnowledgeIndex(): Promise<string> {
   return await invoke('rebuild_knowledge_index')
 }
+
+export interface KnowledgeEntry {
+  id: number
+  content_type: string
+  content: string
+  metadata: string | null
+  created_at: string
+}
+
+export interface ImportResult {
+  success_count: number
+  fail_count: number
+  errors: string[]
+}
+
+export async function listKnowledgeEntries(
+  page: number,
+  pageSize: number,
+  contentTypeFilter?: string
+): Promise<KnowledgeEntry[]> {
+  return await invoke('list_knowledge_entries', {
+    page,
+    pageSize,
+    contentTypeFilter
+  })
+}
+
+export async function deleteKnowledgeEntry(id: number): Promise<string> {
+  return await invoke('delete_knowledge_entry', { id })
+}
+
+export async function searchKnowledgeByKeyword(
+  keyword: string,
+  limit: number = 50
+): Promise<KnowledgeEntry[]> {
+  return await invoke('search_knowledge_by_keyword', { keyword, limit })
+}
+
+export async function importKnowledgeFile(filePath: string): Promise<ImportResult> {
+  return await invoke('import_knowledge_file', { filePath })
+}

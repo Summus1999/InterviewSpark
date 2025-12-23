@@ -1386,4 +1386,75 @@ impl Repository {
         
         Ok(conn.last_insert_rowid())
     }
+
+    /// List knowledge entries with pagination (without embedding)
+    pub fn list_knowledge_entries(
+        &self,
+        page: i64,
+        page_size: i64,
+        content_type_filter: Option<&str>,
+    ) -> Result<Vec<crate::db::models::KnowledgeEntry>> {
+        let conn = self.conn.lock().unwrap();
+        let offset = (page - 1) * page_size;
+        
+        let mut sql = "SELECT id, content_type, content, metadata, created_at FROM knowledge_vectors".to_string();
+        
+        if let Some(ct) = content_type_filter {
+            sql.push_str(&format!(" WHERE content_type = '{}'", ct));
+        }
+        
+        sql.push_str(" ORDER BY created_at DESC LIMIT ?1 OFFSET ?2");
+        
+        let mut stmt = conn.prepare(&sql)?;
+        let entries = stmt.query_map(params![page_size, offset], |row| {
+            Ok(crate::db::models::KnowledgeEntry {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                content: row.get(2)?,
+                metadata: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+        
+        Ok(entries)
+    }
+
+    /// Delete knowledge entry by id
+    pub fn delete_knowledge_entry(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM knowledge_vectors WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    /// Search knowledge by keyword in content
+    pub fn search_knowledge_by_keyword(
+        &self,
+        keyword: &str,
+        limit: i64,
+    ) -> Result<Vec<crate::db::models::KnowledgeEntry>> {
+        let conn = self.conn.lock().unwrap();
+        let search_pattern = format!("%{}%", keyword);
+        
+        let mut stmt = conn.prepare(
+            "SELECT id, content_type, content, metadata, created_at 
+             FROM knowledge_vectors 
+             WHERE content LIKE ?1 
+             ORDER BY created_at DESC 
+             LIMIT ?2"
+        )?;
+        
+        let entries = stmt.query_map(params![search_pattern, limit], |row| {
+            Ok(crate::db::models::KnowledgeEntry {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                content: row.get(2)?,
+                metadata: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+        
+        Ok(entries)
+    }
 }

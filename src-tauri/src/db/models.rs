@@ -193,6 +193,24 @@ pub struct BestPracticesResult {
     pub generated_at: String,
 }
 
+/// Knowledge entry for RAG management (without embedding)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeEntry {
+    pub id: i64,
+    pub content_type: String,  // "question" | "answer" | "jd"
+    pub content: String,
+    pub metadata: Option<String>,
+    pub created_at: String,
+}
+
+/// Import result for knowledge batch import
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportResult {
+    pub success_count: i32,
+    pub fail_count: i32,
+    pub errors: Vec<String>,
+}
+
 /// Industry benchmark data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndustryBenchmark {

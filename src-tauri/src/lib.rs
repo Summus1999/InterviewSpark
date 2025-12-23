@@ -1445,6 +1445,83 @@ async fn rebuild_knowledge_index(
     Ok("Knowledge index rebuilt successfully".to_string())
 }
 
+/// List knowledge entries with pagination
+#[tauri::command]
+async fn list_knowledge_entries(
+    page: i64,
+    page_size: i64,
+    content_type_filter: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::models::KnowledgeEntry>, String> {
+    state.db.list_knowledge_entries(
+        page,
+        page_size,
+        content_type_filter.as_deref(),
+    ).map_err(|e| e.to_string())
+}
+
+/// Delete knowledge entry by id
+#[tauri::command]
+async fn delete_knowledge_entry(
+    id: i64,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    state.db.delete_knowledge_entry(id)
+        .map_err(|e| e.to_string())?;
+    
+    // Rebuild index after deletion
+    state.rag.rebuild_index()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    Ok("Knowledge entry deleted successfully".to_string())
+}
+
+/// Search knowledge by keyword
+#[tauri::command]
+async fn search_knowledge_by_keyword(
+    keyword: String,
+    limit: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::models::KnowledgeEntry>, String> {
+    state.db.search_knowledge_by_keyword(&keyword, limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Import knowledge from file (JSON or TXT)
+#[tauri::command]
+async fn import_knowledge_file(
+    file_path: String,
+    state: State<'_, AppState>,
+) -> Result<crate::db::models::ImportResult, String> {
+    use std::path::Path;
+    use crate::rag::{import_from_json, import_from_txt};
+    
+    let path = Path::new(&file_path);
+    let extension = path.extension()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| "Invalid file extension".to_string())?;
+    
+    let result = match extension.to_lowercase().as_str() {
+        "json" => import_from_json(path, &state.rag)
+            .await
+            .map_err(|e| e.to_string())?,
+        "txt" => import_from_txt(path, &state.rag)
+            .await
+            .map_err(|e| e.to_string())?,
+        _ => return Err("Unsupported file format. Use .json or .txt".to_string()),
+    };
+    
+    // Rebuild index after import
+    if result.success_count > 0 {
+        state.rag.rebuild_index()
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    
+    Ok(result)
+}
+
 /// Recursively copy directory contents
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) {
     if let Err(e) = std::fs::create_dir_all(dst) {
@@ -1618,7 +1695,11 @@ pub fn run() {
       get_knowledge_base_stats,
       init_knowledge_base_background,
       search_knowledge,
-      rebuild_knowledge_index
+      rebuild_knowledge_index,
+      list_knowledge_entries,
+      delete_knowledge_entry,
+      search_knowledge_by_keyword,
+      import_knowledge_file
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
