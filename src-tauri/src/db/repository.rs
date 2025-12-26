@@ -2,7 +2,7 @@
 
 use super::models::*;
 use anyhow::Result;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use std::sync::Mutex;
 
 /// Macro to safely acquire database connection lock
@@ -33,6 +33,20 @@ impl Repository {
         Self {
             conn: Mutex::new(conn),
         }
+    }
+
+    /// Execute operations within a transaction
+    /// Automatically commits on success, rolls back on error
+    pub fn with_transaction<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Transaction) -> Result<R>,
+    {
+        let mut conn = self.conn.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire database lock: {}", e))?;
+        let tx = conn.transaction()?;
+        let result = f(&tx)?;
+        tx.commit()?;
+        Ok(result)
     }
 
     // ===== Resume Operations =====
@@ -177,6 +191,43 @@ impl Repository {
             .collect::<Result<Vec<_>, _>>()?;
         
         Ok(sessions)
+    }
+
+    /// Get sessions with answer count (optimized, no N+1 query)
+    /// Combines session data with answer counts in a single JOIN query
+    pub fn get_sessions_with_answer_count(&self) -> Result<Vec<(InterviewSession, i32)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT s.id, s.user_id, s.resume_id, s.job_description_id, s.questions, s.created_at, 
+                    COUNT(a.id) as answer_count
+             FROM interview_sessions s
+             LEFT JOIN interview_answers a ON s.id = a.session_id
+             GROUP BY s.id
+             ORDER BY s.created_at DESC"
+        )?;
+        
+        let results = stmt
+            .query_map([], |row| {
+                let questions_json: String = row.get(4)?;
+                let questions: Vec<String> = serde_json::from_str(&questions_json)
+                    .unwrap_or_default();
+                
+                let session = InterviewSession {
+                    id: Some(row.get(0)?),
+                    user_id: row.get(1)?,
+                    resume_id: row.get(2)?,
+                    job_description_id: row.get(3)?,
+                    questions,
+                    created_at: row.get(5)?,
+                };
+                
+                let answer_count: i32 = row.get(6)?;
+                
+                Ok((session, answer_count))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        Ok(results)
     }
 
     /// Get interview session by ID

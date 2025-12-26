@@ -325,6 +325,13 @@ fn db_get_sessions(state: State<'_, AppState>) -> Result<Vec<InterviewSession>, 
         .map_err(|e| e.to_string())
 }
 
+/// Get sessions with answer count (optimized, no N+1 query)
+#[tauri::command]
+fn db_get_sessions_with_count(state: State<'_, AppState>) -> Result<Vec<(InterviewSession, i32)>, String> {
+    state.db.get_sessions_with_answer_count()
+        .map_err(|e| e.to_string())
+}
+
 /// Get interview session by ID
 #[tauri::command]
 fn db_get_session(session_id: i64, state: State<'_, AppState>) -> Result<Option<InterviewSession>, String> {
@@ -1712,6 +1719,7 @@ pub fn run() {
       db_delete_job_description,
       db_create_session,
       db_get_sessions,
+      db_get_sessions_with_count,
       db_get_session,
       db_save_answer,
       db_get_answers,

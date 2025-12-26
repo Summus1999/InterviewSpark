@@ -4,6 +4,45 @@
 
 import { invoke } from '@tauri-apps/api/core'
 
+/**
+ * Unified error handler for database operations
+ * Provides user-friendly error messages and logging
+ */
+function handleDatabaseError(operation: string, error: unknown): never {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  console.error(`[Database Error] ${operation}:`, errorMessage)
+  
+  // User-friendly error messages
+  const friendlyMessages: Record<string, string> = {
+    'API client not initialized': '请先在设置中配置 API Key',
+    'Failed to acquire': '数据库正忙，请稍后重试',
+    'not found': '未找到相关数据',
+    'permission denied': '权限不足',
+    'network': '网络连接失败，请检查网络'
+  }
+  
+  let friendlyMessage = `操作失败: ${errorMessage}`
+  for (const [key, msg] of Object.entries(friendlyMessages)) {
+    if (errorMessage.toLowerCase().includes(key.toLowerCase())) {
+      friendlyMessage = msg
+      break
+    }
+  }
+  
+  throw new Error(friendlyMessage)
+}
+
+/**
+ * Safe invoke wrapper with error handling
+ */
+async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(command, args)
+  } catch (error) {
+    handleDatabaseError(command, error)
+  }
+}
+
 export interface Resume {
   id?: number
   title: string
@@ -134,15 +173,15 @@ export interface AnswerComparisonItem {
 
 // Resume operations
 export async function saveResume(title: string, content: string): Promise<number> {
-  return await invoke('db_save_resume', { title, content })
+  return await safeInvoke('db_save_resume', { title, content })
 }
 
 export async function getResumes(): Promise<Resume[]> {
-  return await invoke('db_get_resumes')
+  return await safeInvoke('db_get_resumes')
 }
 
 export async function deleteResume(id: number): Promise<void> {
-  return await invoke('db_delete_resume', { id })
+  return await safeInvoke('db_delete_resume', { id })
 }
 
 // Job description operations
@@ -150,15 +189,15 @@ export async function saveJobDescription(
   title: string,
   content: string
 ): Promise<number> {
-  return await invoke('db_save_job_description', { title, content })
+  return await safeInvoke('db_save_job_description', { title, content })
 }
 
 export async function getJobDescriptions(): Promise<JobDescription[]> {
-  return await invoke('db_get_job_descriptions')
+  return await safeInvoke('db_get_job_descriptions')
 }
 
 export async function deleteJobDescription(id: number): Promise<void> {
-  return await invoke('db_delete_job_description', { id })
+  return await safeInvoke('db_delete_job_description', { id })
 }
 
 // Interview session operations
@@ -167,7 +206,7 @@ export async function createSession(
   jobDescriptionId: number | null,
   questions: string[]
 ): Promise<number> {
-  return await invoke('db_create_session', {
+  return await safeInvoke('db_create_session', {
     resumeId,
     jobDescriptionId,
     questions
@@ -175,11 +214,11 @@ export async function createSession(
 }
 
 export async function getSessions(): Promise<InterviewSession[]> {
-  return await invoke('db_get_sessions')
+  return await safeInvoke('db_get_sessions')
 }
 
 export async function getSession(sessionId: number): Promise<InterviewSession | null> {
-  return await invoke('db_get_session', { sessionId })
+  return await safeInvoke('db_get_session', { sessionId })
 }
 
 export async function saveAnswer(
@@ -189,7 +228,7 @@ export async function saveAnswer(
   answer: string,
   feedback: string
 ): Promise<number> {
-  return await invoke('db_save_answer', {
+  return await safeInvoke('db_save_answer', {
     sessionId,
     questionIndex,
     question,
@@ -208,7 +247,7 @@ export async function analyzeAnswerWithScoring(
   question: string,
   jobDescription: string
 ): Promise<void> {
-  await invoke('analyze_answer_with_scoring', {
+  await safeInvoke('analyze_answer_with_scoring', {
     answerId,
     answer,
     question,
@@ -217,7 +256,7 @@ export async function analyzeAnswerWithScoring(
 }
 
 export async function getAnswers(sessionId: number): Promise<InterviewAnswer[]> {
-  return await invoke('db_get_answers', { sessionId })
+  return await safeInvoke('db_get_answers', { sessionId })
 }
 
 // Question bank operations
@@ -290,37 +329,37 @@ export async function getQuestionsByTag(tagId: number): Promise<QuestionBankItem
 
 // Report operations
 export async function generateReport(sessionId: number): Promise<SessionReport> {
-  return await invoke('generate_comprehensive_report', { sessionId })
+  return await safeInvoke('generate_comprehensive_report', { sessionId })
 }
 
 export async function getReport(sessionId: number): Promise<SessionReport | null> {
-  return await invoke('db_get_report', { sessionId })
+  return await safeInvoke('db_get_report', { sessionId })
 }
 
 export async function exportReportText(
   sessionId: number,
   filePath: string
 ): Promise<void> {
-  return await invoke('export_report_text', { sessionId, filePath })
+  return await safeInvoke('export_report_text', { sessionId, filePath })
 }
 
 export async function exportReportHtml(
   sessionId: number,
   filePath: string
 ): Promise<void> {
-  return await invoke('export_report_html', { sessionId, filePath })
+  return await safeInvoke('export_report_html', { sessionId, filePath })
 }
 
 // Analytics operations
 export async function getTrendAnalytics(
   timeRangeDays?: number
 ): Promise<TrendAnalytics> {
-  return await invoke('get_trend_analytics', { timeRangeDays: timeRangeDays || null })
+  return await safeInvoke('get_trend_analytics', { timeRangeDays: timeRangeDays || null })
 }
 
 // Dashboard operations
 export async function getDashboardData(): Promise<DashboardData> {
-  return await invoke('get_dashboard_data')
+  return await safeInvoke('get_dashboard_data')
 }
 
 export interface ActivityData {
