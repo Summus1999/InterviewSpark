@@ -30,7 +30,8 @@
       "nsis"
     ],
     "resources": [
-      "resources/models/**/*"
+      "resources/models/**/*",
+      "resources/personas.json"
     ],
     "icon": [
       "icons/32x32.png",

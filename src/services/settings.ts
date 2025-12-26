@@ -38,12 +38,12 @@ export interface ApiSettings {
 }
 
 export const AVAILABLE_MODELS = [
-  { value: 'Pro/zai-org/GLM-4.7', label: 'GLM-4.7', description: '智谱旗舰' },
-  { value: 'Qwen/Qwen3-VL-235B-A22B-Instruct', label: 'Qwen Plus', description: '千问推理' },
-  { value: 'Qwen/Qwen3-235B-A22B-Thinking-2507', label: 'Qwen Max', description: '千问旗舰' },
-  { value: 'moonshotai/Kimi-K2-Thinking', label: 'Kimi Large', description: 'Kimi旗舰' },
-  { value: 'zai-org/GLM-4.6V', label: 'GLM-4-6v', description: '智谱轻量' },
-  { value: 'MiniMaxAI/MiniMax-M2', label: 'MiniMax-M2', description: 'MiniMax旗舰' },
+  { value: 'Pro/zai-org/GLM-4.7', label: 'GLM-4.7', description: '智谱轻量' },
+  { value: 'Qwen/Qwen3-VL-235B-A22B-Instruct', label: 'Qwen Plus', description: '通义视觉' },
+  { value: 'Qwen/Qwen3-235B-A22B-Thinking-2507', label: 'Qwen Max', description: '通义推理' },
+  { value: 'moonshotai/Kimi-K2-Thinking', label: 'Kimi Large', description: '月之暗面' },
+  { value: 'zai-org/GLM-4.6V', label: 'GLM-4-6v', description: '智谱视觉' },
+  { value: 'MiniMaxAI/MiniMax-M2', label: 'MiniMax-M2', description: '海螺AI' },
 ]
 
 // The flagship model used for AI analysis reports

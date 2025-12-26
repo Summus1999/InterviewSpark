@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 use super::retry::RetryPolicy;
 use futures::StreamExt;
 use eventsource_stream::Eventsource;
@@ -51,6 +53,29 @@ pub struct TranscriptionResponse {
     pub text: String,
 }
 
+/// Persona configuration
+#[derive(Debug, Clone, Deserialize)]
+pub struct PersonaConfig {
+    #[allow(dead_code)]
+    pub name: String,
+    #[allow(dead_code)]
+    pub description: String,
+    pub prompt: String,
+}
+
+/// Global persona configurations cache
+static PERSONAS: OnceLock<HashMap<String, PersonaConfig>> = OnceLock::new();
+
+/// Load persona configurations from embedded resource
+fn load_personas() -> HashMap<String, PersonaConfig> {
+    let personas_json = include_str!("../../resources/personas.json");
+    serde_json::from_str(personas_json)
+        .unwrap_or_else(|e| {
+            log::error!("Failed to load personas.json: {}", e);
+            HashMap::new()
+        })
+}
+
 /// Extract JSON array from response text
 /// Supports both pure JSON and text with embedded JSON
 fn extract_json_array(text: &str) -> Result<Vec<String>> {
@@ -96,13 +121,19 @@ fn extract_json_array(text: &str) -> Result<Vec<String>> {
 
 impl SiliconFlowClient {
     /// Get system prompt based on interviewer persona
-    pub fn get_persona_prompt(persona: &str) -> &'static str {
-        match persona {
-            "strict" => "You are a strict and rigorous interviewer. You evaluate answers with high standards, point out issues directly, demand precision, and maintain a formal tone. Focus on technical accuracy and completeness.",
-            "friendly" => "You are a friendly and encouraging interviewer. You provide constructive feedback, acknowledge strengths first, offer gentle suggestions, and maintain a warm tone. Help candidates feel comfortable while improving.",
-            "stress" => "You are a challenging interviewer who tests candidates under pressure. You ask probing follow-up questions, challenge assumptions, identify weak points, and maintain a direct tone. Push candidates to demonstrate depth.",
-            _ => "You are an experienced interviewer providing balanced, constructive feedback on interview answers."
-        }
+    pub fn get_persona_prompt(persona: &str) -> String {
+        let personas = PERSONAS.get_or_init(load_personas);
+        
+        personas
+            .get(persona)
+            .map(|config| config.prompt.clone())
+            .unwrap_or_else(|| {
+                // Fallback to balanced persona
+                personas
+                    .get("balanced")
+                    .map(|config| config.prompt.clone())
+                    .unwrap_or_else(|| "You are an experienced interviewer providing balanced, constructive feedback on interview answers.".to_string())
+            })
     }
     /// Create a new SiliconFlow client from environment variables
     pub fn from_env() -> Result<Self> {
@@ -371,7 +402,7 @@ impl SiliconFlowClient {
         let messages = vec![
             ChatMessage {
                 role: "system".to_string(),
-                content: system_prompt.to_string(),
+                content: system_prompt,
             },
             ChatMessage {
                 role: "user".to_string(),
@@ -486,7 +517,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanations.
         let messages = vec![
             ChatMessage {
                 role: "system".to_string(),
-                content: system_prompt.to_string(),
+                content: system_prompt,
             },
             ChatMessage {
                 role: "user".to_string(),
