@@ -100,7 +100,7 @@ const localPersona = ref<InterviewerPersona>('balanced')
 const saveButtonRef = ref<HTMLElement | null>(null)
 const confettiRef = ref<InstanceType<typeof ConfettiSuccess> | null>(null)
 const localSettings = ref<ApiSettings>({
-  model: 'Qwen/Qwen3-8B',
+  model: 'Pro/zai-org/GLM-4.7',
   apiKey: ''
 })
 
@@ -259,6 +259,16 @@ function handleResetOnboarding() {
   color: var(--text-primary);
   font-size: 0.9rem;
   transition: border-color 0.3s;
+}
+
+/* Ensure select dropdown shows all options */
+.settings-select {
+  max-height: none;
+  overflow: visible;
+}
+
+.settings-select option {
+  padding: 0.5rem;
 }
 
 .settings-select:focus,

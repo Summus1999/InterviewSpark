@@ -804,7 +804,7 @@ fn db_get_performance_history(state: State<'_, AppState>) -> Result<Vec<Performa
 // ===== Report Generation Commands =====
 
 // Flagship model for AI analysis - highest quality reasoning
-const FLAGSHIP_MODEL: &str = "Qwen/Qwen3-VL-235B-A22B-Thinking";
+const FLAGSHIP_MODEL: &str = "Qwen/Qwen3-235B-A22B-Thinking-2507";
 
 /// Generate comprehensive interview report
 #[tauri::command]

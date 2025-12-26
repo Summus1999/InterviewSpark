@@ -246,7 +246,7 @@
 ### 3.2 AI能力集成
 
 - **大模型API**：硅基流动 - 提供面试问题生成、回答分析、复盘建议等核心AI能力，支持SSE流式输出
-- **多模型支持**：Qwen3-8B / Qwen Plus / Qwen Max / Kimi Large / GLM-4-6v / MiniMax-M2
+- **多模型支持**：GLM-4.7 / Qwen Plus / Qwen Max / Kimi Large / GLM-4-6v / MiniMax-M2
 - **语音识别**：Web Speech API - 浏览器原生语音识别，支持中文识别，无需模型下载
 - **语音合成**：Web Speech API - 浏览器原生TTS，音质自然，支持语速和音量调节
 

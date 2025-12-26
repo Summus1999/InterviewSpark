@@ -287,7 +287,7 @@ ProductionDoc.md          # 产品文档
 - **状态管理**: Pinia
 - **构建工具**: Vite 7.x
 - **代码规范**: ESLint + Prettier
-- **AI 能力**: 硅基流动 API，支持 6 个模型（Qwen3-8B/Qwen Plus/Qwen Max/Kimi Large/GLM-4-6v/MiniMax-M2）
+- **AI 能力**: 硅基流动 API，支持 6 个模型（GLM-4.7/Qwen Plus/Qwen Max/Kimi Large/GLM-4-6v/MiniMax-M2）
 - **数据模板**: 预置6个简历模板和6个JD模板（前端/后端/产品/全栈/QA/DevOps）
 - **数据库**: SQLite + rusqlite
 - **本地存储**: IndexedDB（草稿自动保存）

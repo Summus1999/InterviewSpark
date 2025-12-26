@@ -113,7 +113,7 @@ impl SiliconFlowClient {
             .unwrap_or_else(|_| "https://api.siliconflow.cn/v1".to_string());
         
         let model = env::var("SILICONFLOW_MODEL")
-            .unwrap_or_else(|_| "Qwen/Qwen3-8B".to_string());
+            .unwrap_or_else(|_| "Pro/zai-org/GLM-4.7".to_string());
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(120))
@@ -602,7 +602,7 @@ mod tests {
     use std::env;
 
     // Available models for testing
-    const MODEL_QWEN3_8B: &str = "Qwen/Qwen3-8B";
+    const MODEL_GLM4_7: &str = "Pro/zai-org/GLM-4.7";
     const MODEL_QWEN3_235B: &str = "Qwen/Qwen3-235B-A22B";
     const MODEL_QWEN3_VL_THINKING: &str = "Qwen/Qwen3-VL-235B-A22B-Thinking";
 
@@ -622,7 +622,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_qwen3_8b_api_call() {
+    async fn test_glm4_7_api_call() {
         let api_key = match get_api_key() {
             Some(key) => key,
             None => {
@@ -631,18 +631,18 @@ mod tests {
             }
         };
 
-        let client = SiliconFlowClient::new(api_key, MODEL_QWEN3_8B.to_string())
+        let client = SiliconFlowClient::new(api_key, MODEL_GLM4_7.to_string())
             .expect("Failed to create client");
 
         let messages = create_test_messages();
         let result = client
-            .chat_completion_with_model(messages, MODEL_QWEN3_8B, Some(0.5), Some(50))
+            .chat_completion_with_model(messages, MODEL_GLM4_7, Some(0.5), Some(50))
             .await;
 
-        assert!(result.is_ok(), "Qwen3-8B API call failed: {:?}", result.err());
+        assert!(result.is_ok(), "GLM-4.7 API call failed: {:?}", result.err());
         let response = result.unwrap();
         assert!(!response.is_empty(), "Response should not be empty");
-        println!("Qwen3-8B response: {}", response);
+        println!("GLM-4.7 response: {}", response);
     }
 
     #[tokio::test]
@@ -703,8 +703,8 @@ mod tests {
             }
         };
 
-        let models = vec![MODEL_QWEN3_8B, MODEL_QWEN3_235B, MODEL_QWEN3_VL_THINKING];
-        let client = SiliconFlowClient::new(api_key, MODEL_QWEN3_8B.to_string())
+        let models = vec![MODEL_GLM4_7, MODEL_QWEN3_235B, MODEL_QWEN3_VL_THINKING];
+        let client = SiliconFlowClient::new(api_key, MODEL_GLM4_7.to_string())
             .expect("Failed to create client");
 
         let mut all_passed = true;

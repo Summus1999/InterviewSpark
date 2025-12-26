@@ -682,7 +682,7 @@ Phase 5.5 (多用户与活跃度系统)
 - [x] 设置面板 ✅
   - ✅ 齿轮图标设置入口
   - ✅ 亮色/暗色主题切换
-  - ✅ 6个模型选择（Qwen3-8B/Qwen Plus/Qwen Max/Kimi Large/GLM-4-6v/MiniMax-M2）
+  - ✅ 6个模型选择（GLM-4.7/Qwen Plus/Qwen Max/Kimi Large/GLM-4-6v/MiniMax-M2）
   - ✅ API Key 配置功能
   - ✅ 运行时动态更新 API 客户端
 

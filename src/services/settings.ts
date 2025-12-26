@@ -38,13 +38,16 @@ export interface ApiSettings {
 }
 
 export const AVAILABLE_MODELS = [
-  { value: 'Qwen/Qwen3-8B', label: 'Qwen3-8B', description: '轻量快速' },
-  { value: 'Qwen/Qwen3-235B-A22B', label: 'Qwen3-235B', description: '高级模型' },
-  { value: 'Qwen/Qwen3-VL-235B-A22B-Thinking', label: 'Qwen3-VL-Thinking', description: '旗舰推理' },
+  { value: 'Pro/zai-org/GLM-4.7', label: 'GLM-4.7', description: '智谱旗舰' },
+  { value: 'Qwen/Qwen3-VL-235B-A22B-Instruct', label: 'Qwen Plus', description: '千问推理' },
+  { value: 'Qwen/Qwen3-235B-A22B-Thinking-2507', label: 'Qwen Max', description: '千问旗舰' },
+  { value: 'moonshotai/Kimi-K2-Thinking', label: 'Kimi Large', description: 'Kimi旗舰' },
+  { value: 'zai-org/GLM-4.6V', label: 'GLM-4-6v', description: '智谱轻量' },
+  { value: 'MiniMaxAI/MiniMax-M2', label: 'MiniMax-M2', description: 'MiniMax旗舰' },
 ]
 
 // The flagship model used for AI analysis reports
-export const FLAGSHIP_MODEL = 'Qwen/Qwen3-VL-235B-A22B-Thinking'
+export const FLAGSHIP_MODEL = 'Qwen/Qwen3-235B-A22B-Thinking-2507'
 
 /**
  * Theme management
@@ -232,7 +235,7 @@ export class FollowUpSettingsManager {
  */
 export class ApiSettingsManager {
   private static defaultSettings: ApiSettings = {
-    model: 'Qwen/Qwen3-8B',
+    model: 'Pro/zai-org/GLM-4.7',
     apiKey: ''
   }
 
