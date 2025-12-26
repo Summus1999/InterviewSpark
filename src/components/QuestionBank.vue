@@ -64,12 +64,15 @@
       <p v-else>题库为空，快来添加问题吧！</p>
     </div>
     
-    <div v-else class="bank-list">
-      <div
-        v-for="item in filteredBank"
-        :key="item.id"
-        class="bank-item"
-      >
+    <RecycleScroller
+      v-else
+      class="bank-list"
+      :items="filteredBank"
+      :item-size="280"
+      key-field="id"
+      v-slot="{ item }"
+    >
+      <div class="bank-item">
         <div class="item-header">
           <span class="item-question">{{ item.question }}</span>
           <button @click="deleteItem(item.id!)" class="delete-btn">删除</button>
@@ -116,7 +119,7 @@
           </span>
         </div>
       </div>
-    </div>
+    </RecycleScroller>
   </div>
 </template>
 
@@ -126,6 +129,8 @@
  * Allows users to save and manage frequently asked questions
  */
 import { ref, computed, onMounted, watch } from 'vue'
+import { RecycleScroller } from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import type { QuestionBankItem, QuestionTag } from '../services/database'
 import { getBank, addToBank, updateBankItem, deleteFromBank, getAllTags, getQuestionsByTag } from '../services/database'
 import TagManager from './TagManager.vue'
@@ -320,9 +325,8 @@ h4 {
 }
 
 .bank-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  height: 600px;
+  overflow-y: auto;
 }
 
 .bank-item {

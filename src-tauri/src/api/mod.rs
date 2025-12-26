@@ -6,7 +6,9 @@
 
 pub mod siliconflow;
 pub mod retry;
+pub mod dedup;
 
 pub use siliconflow::SiliconFlowClient;
 #[allow(unused_imports)]
 pub use retry::RetryPolicy;
+pub use dedup::RequestDeduplicator;

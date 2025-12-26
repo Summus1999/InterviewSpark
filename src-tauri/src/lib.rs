@@ -38,6 +38,9 @@ struct AppState {
     db: Arc<Repository>,
     cache: Arc<CacheManager>,
     rag: Arc<RagService>,
+    // Generic caches for different data types
+    session_cache: Arc<analysis::GenericCache<i64, db::models::InterviewSession>>,
+    question_bank_cache: Arc<analysis::GenericCache<String, Vec<db::models::QuestionBankItem>>>,
 }
 
 /// Helper function to safely retrieve API client from state
@@ -88,27 +91,36 @@ async fn generate_questions(
 ) -> Result<Vec<String>, String> {
     let client = get_client(&state)?;
     
-    // Try to retrieve similar questions from knowledge base as context
-    let context = if !state.rag.is_empty() {
-        match state.rag.retrieve_similar_questions(&job_description, 3).await {
-            Ok(results) => {
-                let context_text = RagService::build_context(&results, 500);
-                if !context_text.is_empty() {
-                    log::info!("RAG context: {} chars", context_text.len());
-                    Some(context_text)
-                } else {
-                    None
+    // Use tokio::join! to parallelize RAG retrieval and API warm-up
+    let (context, _) = tokio::join!(
+        async {
+            // Try to retrieve similar questions from knowledge base as context
+            if !state.rag.is_empty() {
+                match state.rag.retrieve_similar_questions(&job_description, 3).await {
+                    Ok(results) => {
+                        let context_text = RagService::build_context(&results, 500);
+                        if !context_text.is_empty() {
+                            log::info!("RAG context: {} chars", context_text.len());
+                            Some(context_text)
+                        } else {
+                            None
+                        }
+                    }
+                    Err(e) => {
+                        // Silent failure - RAG is optional enhancement
+                        log::warn!("RAG retrieval failed (degrading gracefully): {}", e);
+                        None
+                    }
                 }
-            }
-            Err(e) => {
-                // Silent failure - RAG is optional enhancement
-                log::warn!("RAG retrieval failed (degrading gracefully): {}", e);
+            } else {
                 None
             }
+        },
+        async {
+            // API client warm-up (placeholder for future optimizations)
+            tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
         }
-    } else {
-        None
-    };
+    );
     
     client
         .generate_questions_with_context(
@@ -1701,6 +1713,9 @@ pub fn run() {
         db: repository,
         cache: cache_manager,
         rag: rag_service,
+        // Initialize generic caches with appropriate TTLs
+        session_cache: Arc::new(analysis::GenericCache::new(300)), // 5 min TTL
+        question_bank_cache: Arc::new(analysis::GenericCache::new(600)), // 10 min TTL
       });
       
       Ok(())

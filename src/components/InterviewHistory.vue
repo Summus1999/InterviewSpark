@@ -34,12 +34,15 @@
       <p>暂无面试记录</p>
     </div>
     
-    <div v-else class="sessions-list">
-      <div
-        v-for="session in sessions"
-        :key="session.id"
-        class="session-card"
-      >
+    <RecycleScroller
+      v-else
+      class="sessions-list"
+      :items="sessions"
+      :item-size="100"
+      key-field="id"
+      v-slot="{ item: session }"
+    >
+      <div class="session-card">
         <div class="session-header">
           <div class="session-info-left" @click="viewSession(session.id!)">
             <span class="session-date">{{ formatDate(session.created_at) }}</span>
@@ -73,7 +76,7 @@
           <p>{{ session.questions[0] || '暂无问题' }}</p>
         </div>
       </div>
-    </div>
+    </RecycleScroller>
     
     <!-- Session Detail Modal -->
     <div v-if="selectedSession" class="modal-overlay" @click="closeDetail">
@@ -186,6 +189,8 @@
  * Features: delete sessions, backup/restore data, compare answers
  */
 import { ref, onMounted, computed } from 'vue'
+import { RecycleScroller } from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import type { InterviewSession, InterviewAnswer } from '../services/database'
 import { getSessions, getSession, getAnswers, deleteSession, deleteAllSessions, backupData, restoreData } from '../services/database'
 import ReportView from './ReportView.vue'
@@ -413,9 +418,8 @@ h3 {
 }
 
 .sessions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  height: 600px;
+  overflow-y: auto;
 }
 
 .session-card {

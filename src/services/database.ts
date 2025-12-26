@@ -3,6 +3,48 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
+import { z } from 'zod'
+
+/**
+ * Zod schemas for runtime validation
+ */
+const ResumeSchema = z.object({
+  id: z.number().optional(),
+  title: z.string(),
+  content: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+const InterviewSessionSchema = z.object({
+  id: z.number().optional(),
+  resume_id: z.number().optional(),
+  job_description_id: z.number().optional(),
+  questions: z.array(z.string()),
+  created_at: z.string(),
+  user_id: z.number().optional(),
+})
+
+const InterviewAnswerSchema = z.object({
+  id: z.number().optional(),
+  session_id: z.number(),
+  question_index: z.number(),
+  question: z.string(),
+  answer: z.string(),
+  feedback: z.string(),
+  created_at: z.string(),
+})
+
+const QuestionBankItemSchema = z.object({
+  id: z.number().optional(),
+  question: z.string(),
+  best_answer: z.string().optional(),
+  notes: z.string().optional(),
+  job_category: z.string().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  tags: z.array(z.any()).optional(),
+})
 
 /**
  * Unified error handler for database operations
@@ -33,11 +75,16 @@ function handleDatabaseError(operation: string, error: unknown): never {
 }
 
 /**
- * Safe invoke wrapper with error handling
+ * Safe invoke wrapper with error handling and validation
  */
-async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+async function safeInvoke<T>(command: string, args?: Record<string, unknown>, schema?: z.ZodSchema<T>): Promise<T> {
   try {
-    return await invoke<T>(command, args)
+    const result = await invoke<T>(command, args)
+    // Validate result if schema provided
+    if (schema) {
+      return schema.parse(result)
+    }
+    return result
   } catch (error) {
     handleDatabaseError(command, error)
   }
@@ -177,7 +224,7 @@ export async function saveResume(title: string, content: string): Promise<number
 }
 
 export async function getResumes(): Promise<Resume[]> {
-  return await safeInvoke('db_get_resumes')
+  return await safeInvoke('db_get_resumes', undefined, z.array(ResumeSchema))
 }
 
 export async function deleteResume(id: number): Promise<void> {
@@ -209,16 +256,16 @@ export async function createSession(
   return await safeInvoke('db_create_session', {
     resumeId,
     jobDescriptionId,
-    questions
+    questions,
   })
 }
 
 export async function getSessions(): Promise<InterviewSession[]> {
-  return await safeInvoke('db_get_sessions')
+  return await safeInvoke('db_get_sessions', undefined, z.array(InterviewSessionSchema))
 }
 
-export async function getSession(sessionId: number): Promise<InterviewSession | null> {
-  return await safeInvoke('db_get_session', { sessionId })
+export async function getSession(id: number): Promise<InterviewSession> {
+  return await safeInvoke('db_get_session', { id }, InterviewSessionSchema)
 }
 
 export async function saveAnswer(
@@ -233,8 +280,12 @@ export async function saveAnswer(
     questionIndex,
     question,
     answer,
-    feedback
+    feedback,
   })
+}
+
+export async function getAnswers(sessionId: number): Promise<InterviewAnswer[]> {
+  return await safeInvoke('db_get_answers', { sessionId }, z.array(InterviewAnswerSchema))
 }
 
 /**
@@ -253,10 +304,6 @@ export async function analyzeAnswerWithScoring(
     question,
     jobDescription
   })
-}
-
-export async function getAnswers(sessionId: number): Promise<InterviewAnswer[]> {
-  return await safeInvoke('db_get_answers', { sessionId })
 }
 
 // Question bank operations

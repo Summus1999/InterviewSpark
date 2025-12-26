@@ -14,6 +14,7 @@ pub mod dashboard;
 pub mod trends;
 pub mod backup;
 pub mod cache;
+pub mod cache_manager;
 pub mod profile;
 pub mod recommendation;
 pub mod best_practices;
@@ -39,6 +40,7 @@ pub use backup::{BackupManager, BackupData};
 // Cache types are part of the public API
 #[allow(unused_imports)]
 pub use cache::{CacheManager, CacheEntry};
+pub use cache_manager::{GenericCache, CacheStats};
 pub use profile::ProfileGenerator;
 pub use recommendation::RecommendationEngine;
 pub use best_practices::BestPracticesExtractor;
