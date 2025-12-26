@@ -200,6 +200,13 @@ CREATE INDEX IF NOT EXISTS idx_interview_answers_question ON interview_answers(q
 CREATE INDEX IF NOT EXISTS idx_knowledge_type ON knowledge_vectors(content_type);
 CREATE INDEX IF NOT EXISTS idx_answers_session_question ON interview_answers(session_id, question_index);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_created ON interview_sessions(user_id, created_at);
+
+-- P0 Performance Optimization Indices
+CREATE INDEX IF NOT EXISTS idx_resumes_updated ON resumes(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_resumes_user ON resumes(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_created_desc ON interview_sessions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_answers_session ON interview_answers(session_id);
+CREATE INDEX IF NOT EXISTS idx_bank_category ON question_bank(job_category);
 "#;
 
 /// Check if a column exists in a table

@@ -89,26 +89,26 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { ThemeManager, ApiSettingsManager, OnboardingManager, InterviewerPersonaManager, AVAILABLE_MODELS, type Theme, type ApiSettings, type InterviewerPersona } from '../services/settings'
+import { useSettingsStore, AVAILABLE_MODELS } from '../stores/settings'
 import { invoke } from '@tauri-apps/api/core'
 import ConfettiSuccess from './ConfettiSuccess.vue'
 
+const settingsStore = useSettingsStore()
+
 const showPanel = ref(false)
 const showApiKey = ref(false)
-const localTheme = ref<Theme>('light')
-const localPersona = ref<InterviewerPersona>('balanced')
 const saveButtonRef = ref<HTMLElement | null>(null)
 const confettiRef = ref<InstanceType<typeof ConfettiSuccess> | null>(null)
-const localSettings = ref<ApiSettings>({
-  model: 'Pro/zai-org/GLM-4.7',
-  apiKey: ''
-})
+
+// Local copies for editing (two-way binding)
+const localTheme = ref(settingsStore.theme)
+const localPersona = ref(settingsStore.persona)
+const localSettings = ref({ ...settingsStore.apiSettings })
 
 const availableModels = AVAILABLE_MODELS
-const themeManager = ThemeManager.getInstance()
 
 const personaDescription = computed(() => {
-  return InterviewerPersonaManager.getPersonaDescription(localPersona.value)
+  return settingsStore.getPersonaDescription(localPersona.value)
 })
 
 const currentModelDescription = computed(() => {
@@ -117,9 +117,10 @@ const currentModelDescription = computed(() => {
 })
 
 onMounted(() => {
-  localTheme.value = themeManager.getTheme()
-  localSettings.value = ApiSettingsManager.getSettings()
-  localPersona.value = InterviewerPersonaManager.getPersona()
+  // Sync with store on mount
+  localTheme.value = settingsStore.theme
+  localPersona.value = settingsStore.persona
+  localSettings.value = { ...settingsStore.apiSettings }
   
   // Add click outside listener
   document.addEventListener('click', handleClickOutside)
@@ -142,7 +143,7 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 function handleThemeChange() {
-  themeManager.setTheme(localTheme.value)
+  settingsStore.setTheme(localTheme.value)
 }
 
 function toggleApiKeyVisibility() {
@@ -151,9 +152,9 @@ function toggleApiKeyVisibility() {
 
 async function handleSave() {
   try {
-    // Save to localStorage
-    ApiSettingsManager.saveSettings(localSettings.value)
-    InterviewerPersonaManager.setPersona(localPersona.value)
+    // Save to Pinia store (auto-syncs to localStorage)
+    settingsStore.updateApiSettings(localSettings.value)
+    settingsStore.setPersona(localPersona.value)
     
     // Update backend configuration via Tauri command
     await invoke('update_api_config', {
@@ -175,7 +176,7 @@ async function handleSave() {
 
 function handleResetOnboarding() {
   if (confirm('确定要重置引导教程吗？下次启动应用时将重新显示引导。')) {
-    OnboardingManager.reset()
+    settingsStore.resetOnboarding()
     alert('引导教程已重置，请刷新页面查看')
     showPanel.value = false
   }

@@ -69,158 +69,7 @@
 
         <!-- Interview Mode Content -->
         <div v-if="currentMode === 'interview'">
-          <!-- Step 1: Input Resume and JD -->
-          <div v-if="currentStep === 'input'" class="step-content">
-            <ResumeInput v-model="resume" />
-            <JobDescription v-model="jobDescription" />
-            
-            <!-- Timer Settings -->
-            <div class="timer-settings-section">
-              <TooltipBubble
-                content="开启计时模式，模拟真实面试时间压力"
-                tooltip-id="timer-settings-tip"
-                position="bottom"
-              >
-                <button @click="toggleTimerSettings" class="settings-toggle-btn">
-                  ⏱️ {{ showTimerSettings ? '隐藏' : '显示' }}计时设置
-                </button>
-              </TooltipBubble>
-              <TimerSettings 
-                v-if="showTimerSettings"
-                v-model="timerSettings"
-                @update:modelValue="handleTimerSettingsChange"
-              />
-            </div>
-            
-            <!-- Follow-up Settings -->
-            <div class="followup-settings-section">
-              <TooltipBubble
-                content="开启追问模式，AI 会根据你的回答追问细节"
-                tooltip-id="followup-settings-tip"
-                position="bottom"
-              >
-                <button @click="toggleFollowUpSettings" class="settings-toggle-btn">
-                  🔄 {{ showFollowUpSettings ? '隐藏' : '显示' }}追问设置
-                </button>
-              </TooltipBubble>
-              <FollowUpSettingsComp 
-                v-if="showFollowUpSettings"
-                v-model="followUpSettings"
-                @update:modelValue="handleFollowUpSettingsChange"
-              />
-            </div>
-            
-            <div class="action-buttons">
-              <TooltipBubble
-                content="基于简历和 JD 生成个性化面试问题"
-                tooltip-id="generate-questions-tip"
-                position="top"
-              >
-                <button 
-                  @click="generateQuestions" 
-                  :disabled="!canGenerate || isLoading"
-                  class="primary-btn"
-                >
-                  <span v-if="isLoading" class="loading-indicator">
-                    <span class="spinner"></span>
-                    问题生成中...
-                  </span>
-                  <span v-else>生成面试问题</span>
-                </button>
-              </TooltipBubble>
-            </div>
-            
-            <p v-if="error" class="error-message">{{ error }}</p>
-          </div>
-
-          <!-- Step 2: Show Questions -->
-          <div v-if="currentStep === 'questions'" class="step-content">
-            <QuestionList 
-              :questions="questions" 
-              :current-index="currentQuestionIndex"
-              @select-question="selectQuestion"
-            />
-            
-            <div class="action-buttons">
-              <button @click="startInterview" class="primary-btn">
-                开始面试
-              </button>
-              <button @click="currentStep = 'input'" class="secondary-btn">
-                重新生成问题
-              </button>
-            </div>
-          </div>
-
-          <!-- Step 3: Interview -->
-          <div v-if="currentStep === 'interview'" class="step-content">
-            <ProgressBar :current="currentQuestionIndex + 1" :total="questions.length" />
-            
-            <!-- Timer Display -->
-            <TimerDisplay
-              v-if="timerSettings.enabled"
-              ref="timerRef"
-              :time-limit="timerSettings.timePerQuestion"
-              :auto-start="true"
-              :show-warning="timerSettings.showWarning"
-              @timeout="handleTimerTimeout"
-              @warning="handleTimerWarning"
-            />
-            
-            <div class="interview-progress">
-              <span>问题 {{ currentQuestionIndex + 1 }} / {{ questions.length }}</span>
-            </div>
-            
-            <div class="current-question">
-              <h3>{{ questions[currentQuestionIndex] }}</h3>
-            </div>
-
-            <!-- Voice Controls -->
-            <VoiceControls
-              :current-question="questions[currentQuestionIndex]"
-              :disabled="isLoading"
-              @transcript="handleVoiceTranscript"
-            />
-            
-            <div class="answer-input">
-              <h4>您的回答：</h4>
-              <textarea
-                v-model="currentAnswer"
-                placeholder="请输入您的回答或使用语音回答..."
-                rows="8"
-                class="answer-textarea"
-              />
-            </div>
-            
-            <div class="action-buttons">
-              <button 
-                @click="submitAnswer" 
-                :disabled="!currentAnswer.trim() || isLoading"
-                class="primary-btn"
-              >
-                {{ isLoading ? '分析中...' : '提交答案' }}
-              </button>
-              <button 
-                v-if="currentQuestionIndex < questions.length - 1"
-                @click="nextQuestion"
-                class="secondary-btn"
-              >
-                跳过此题
-              </button>
-            </div>
-            
-            <p v-if="error" class="error-message">{{ error }}</p>
-          </div>
-
-          <!-- Step 4: Follow-up Panel (if enabled) -->
-          <div v-if="currentStep === 'followup'" class="step-content">
-            <FollowUpPanel 
-              v-if="followUpAnalysis"
-              :analysis="followUpAnalysis"
-              @select="selectFollowUpQuestion"
-              @skip="skipFollowUp"
-              @custom="currentStep = 'interview'"
-            />
-          </div>
+          <InterviewMode />
         </div>
 
         <!-- History Mode -->
@@ -292,27 +141,6 @@
       </section>
     </main>
     
-    <!-- Final Report Modal -->
-    <div v-if="showFinalReport" class="report-overlay" @click.self="closeCompletionAnimation">
-      <div class="report-modal">
-        <button class="report-close-btn" @click="closeCompletionAnimation" aria-label="Close report">
-          ✕
-        </button>
-        <ReportView 
-          v-if="currentSessionId" 
-          :session-id="currentSessionId" 
-          @close="closeCompletionAnimation"
-        />
-      </div>
-    </div>
-    
-    <!-- Completion Animation -->
-    <CompletionAnimation 
-      :show="showCompletionAnimation"
-      :message="`完成了 ${answersHistory.length} 个问题的回答，继续加油！`"
-      @close="closeCompletionAnimation"
-    />
-    
     <!-- Onboarding Guide -->
     <OnboardingGuide 
       :show="showOnboarding"
@@ -326,38 +154,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import ResumeInput from './components/ResumeInput.vue'
-import JobDescription from './components/JobDescription.vue'
-import QuestionList from './components/QuestionList.vue'
+import InterviewMode from './components/InterviewMode.vue'
 import InterviewHistory from './components/InterviewHistory.vue'
 import QuestionBank from './components/QuestionBank.vue'
 import Dashboard from './components/Dashboard.vue'
-import VoiceControls from './components/VoiceControls.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
-import ProgressBar from './components/ProgressBar.vue'
-import CompletionAnimation from './components/CompletionAnimation.vue'
-import TimerDisplay from './components/TimerDisplay.vue'
-import TimerSettings from './components/TimerSettings.vue'
-import FollowUpSettingsComp from './components/FollowUpSettings.vue'
-import FollowUpPanel from './components/FollowUpPanel.vue'
-import ConversationHistory from './components/ConversationHistory.vue'
-import ReportView from './components/ReportView.vue'
 import ProfileView from './components/ProfileView.vue'
 import IndustryComparison from './components/IndustryComparison.vue'
 import RecommendationList from './components/RecommendationList.vue'
 import BestPracticesList from './components/BestPracticesList.vue'
 import OnboardingGuide from './components/OnboardingGuide.vue'
-import TooltipBubble from './components/TooltipBubble.vue'
-import STARScoreDisplay from './components/STARScoreDisplay.vue'
 import ActivityView from './components/ActivityView.vue'
 import KnowledgeBaseView from './components/KnowledgeBaseView.vue'
-import { createSession, saveAnswer, analyzeAnswerWithScoring, analyzeSTARScore, markBestAnswerNeedsUpdate, initKnowledgeBaseBackground, type STARScoringResult } from './services/database'
-import { tts, stt } from './services/voice'
-import { TimerSettingsManager, type TimerConfig, FollowUpSettingsManager, OnboardingManager, InterviewerPersonaManager } from './services/settings'
-import type { ConversationTurn, FollowUpAnalysis, FollowUpSettings, FollowUpType } from './types/follow-up'
+import { initKnowledgeBaseBackground } from './services/database'
+import { useSettingsStore } from './stores/settings'
 import { APP_VERSION } from './version'
+
+const settingsStore = useSettingsStore()
 
 // Development mode detection
 const isDev = import.meta.env.DEV
@@ -371,49 +186,8 @@ const showTest = ref(false)
 const currentMode = ref<'interview' | 'history' | 'bank' | 'dashboard' | 'analysis' | 'activity' | 'knowledge'>('interview')
 const analysisView = ref<'profile' | 'recommendation' | 'best-practices' | 'industry'>('profile')
 
-// Phase 2 interview variables
-const currentStep = ref<'input' | 'questions' | 'interview' | 'feedback' | 'followup'>('input')
-const resume = ref('')
-const jobDescription = ref('')
-const questions = ref<string[]>([])
-const currentQuestionIndex = ref(0)
-const currentAnswer = ref('')
-const currentFeedback = ref('')
-const isLoading = ref(false)
-const error = ref('')
-
-// Database tracking
-const currentSessionId = ref<number | null>(null)
-const answersHistory = ref<Array<{ question: string; answer: string; feedback: string }>>([])
-
-// Voice feature toggle
-const voiceEnabled = ref(true)
-
-// Completion animation state
-const showCompletionAnimation = ref(false)
-
-// Timer settings
-const timerSettings = ref<TimerConfig>(TimerSettingsManager.getSettings())
-const timerRef = ref<InstanceType<typeof TimerDisplay> | null>(null)
-const showTimerSettings = ref(false)
-
-// Follow-up settings and state
-const followUpSettings = ref<FollowUpSettings>(FollowUpSettingsManager.getSettings())
-const showFollowUpSettings = ref(false)
-const conversationHistory = ref<ConversationTurn[]>([])
-const followUpAnalysis = ref<FollowUpAnalysis | null>(null)
-const followUpCount = ref(0)  // Track how many follow-ups for current question
-
 // Onboarding state
-const showOnboarding = ref(!OnboardingManager.isCompleted())
-
-// Final report state
-const showFinalReport = ref(false)
-const reportLoading = ref(false)
-
-// STAR scoring state (deprecated - will be in final report)
-const starScore = ref<STARScoringResult | null>(null)
-const showSTARScore = ref(false)
+const showOnboarding = ref(!settingsStore.onboardingCompleted)
 
 // Background knowledge base initialization on app startup
 onMounted(async () => {
@@ -424,14 +198,6 @@ onMounted(async () => {
     // Silent fail - knowledge base is optional enhancement
     console.warn('Knowledge base init skipped:', err)
   }
-})
-
-const canGenerate = computed(() => {
-  return resume.value.trim().length > 50 && jobDescription.value.trim().length > 20
-})
-
-const formattedFeedback = computed(() => {
-  return currentFeedback.value.replace(/\n/g, '<br>')
 })
 
 const modeTitle = computed(() => {
@@ -458,7 +224,6 @@ const handleGreet = async () => {
   }
 
   try {
-    // Invoke Rust command 'greet' with user's name
     greeting.value = await invoke<string>('greet', { name: userName.value })
   } catch (error) {
     greeting.value = `Error: ${error}`
@@ -466,413 +231,18 @@ const handleGreet = async () => {
 }
 
 /**
- * Generate interview questions
- */
-const generateQuestions = async () => {
-  if (!canGenerate.value) return
-  
-  isLoading.value = true
-  error.value = ''
-  
-  try {
-    const currentPersona = InterviewerPersonaManager.getPersona()
-    const aiQuestions = await invoke<string[]>('generate_questions', {
-      resume: resume.value,
-      jobDescription: jobDescription.value,
-      count: 5,
-      persona: currentPersona
-    })
-    
-    // Add fixed opening and closing questions
-    questions.value = [
-      '请你做一下自我介绍',
-      ...aiQuestions,
-      '那你还有什么想问我的吗'
-    ]
-    
-    currentStep.value = 'questions'
-    currentQuestionIndex.value = 0
-  } catch (err) {
-    error.value = `生成问题失败: ${err}`
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const startInterview = async () => {
-  try {
-    // Create interview session in database
-    currentSessionId.value = await createSession(null, null, questions.value)
-    answersHistory.value = []
-    currentStep.value = 'interview'
-    currentQuestionIndex.value = 0
-    currentAnswer.value = ''
-    
-    // Auto-play first question with voice
-    if (voiceEnabled.value) {
-      await nextTick()
-      playCurrentQuestion()
-    }
-  } catch (err) {
-    error.value = `创建面试会话失败: ${err}`
-  }
-}
-
-/**
- * Play current question with voice
- */
-const playCurrentQuestion = async () => {
-  if (!voiceEnabled.value || !questions.value[currentQuestionIndex.value]) return
-  
-  try {
-    await tts.speak(questions.value[currentQuestionIndex.value])
-  } catch (error) {
-    console.error('Failed to play question:', error)
-  }
-}
-
-/**
- * Play feedback with voice
- */
-const playFeedback = async () => {
-  if (!voiceEnabled.value || !currentFeedback.value) return
-  
-  try {
-    // Speak feedback (limit length for better UX)
-    const feedback = currentFeedback.value.substring(0, 500)
-    await tts.speak(feedback)
-  } catch (error) {
-    console.error('Failed to play feedback:', error)
-  }
-}
-
-const selectQuestion = (index: number) => {
-  // Stop voice playback and recording when switching questions
-  tts.stop()
-  if (stt) {
-    stt.stop()
-  }
-  
-  currentQuestionIndex.value = index
-}
-
-/**
- * Handle voice transcript from speech recognition
- * Appends new text to existing answer instead of overwriting
- */
-const handleVoiceTranscript = (text: string) => {
-  if (currentAnswer.value.trim()) {
-    // Append with space separator
-    currentAnswer.value = currentAnswer.value.trim() + ' ' + text
-  } else {
-    currentAnswer.value = text
-  }
-}
-
-const submitAnswer = async () => {
-  if (!currentAnswer.value.trim()) return
-  
-  // Add candidate's answer to conversation history
-  conversationHistory.value.push({
-    role: 'candidate',
-    content: currentAnswer.value,
-    timestamp: Date.now()
-  })
-  
-  isLoading.value = true
-  error.value = ''
-  
-  try {
-    // Save answer to database if session exists
-    if (currentSessionId.value) {
-      const answerId = await saveAnswer(
-        currentSessionId.value,
-        currentQuestionIndex.value,
-        questions.value[currentQuestionIndex.value],
-        currentAnswer.value,
-        '' // No feedback yet - will be in final report
-      )
-      
-      // Analyze and score answer for profile dimension calculation
-      try {
-        await analyzeAnswerWithScoring(
-          answerId,
-          currentAnswer.value,
-          questions.value[currentQuestionIndex.value],
-          jobDescription.value
-        )
-      } catch (analysisErr) {
-        // Non-critical error - log but don't block user flow
-        console.error('Failed to analyze answer:', analysisErr)
-      }
-      
-      // Mark best answer as needing update for this question
-      try {
-        await markBestAnswerNeedsUpdate(questions.value[currentQuestionIndex.value])
-      } catch (markErr) {
-        // Non-critical error
-        console.error('Failed to mark best answer for update:', markErr)
-      }
-    }
-    
-    // Track answer in memory
-    answersHistory.value.push({
-      question: questions.value[currentQuestionIndex.value],
-      answer: currentAnswer.value,
-      feedback: '' // Will be filled in final report
-    })
-    
-    // Proceed to next question or finish interview
-    if (currentQuestionIndex.value < questions.value.length - 1) {
-      // Stop voice playback and recording when switching questions
-      tts.stop()
-      if (stt) {
-        stt.stop()
-      }
-      
-      // Go to next question
-      currentQuestionIndex.value++
-      currentAnswer.value = ''
-      followUpCount.value = 0
-      conversationHistory.value = []
-      
-      // Restart timer if enabled
-      if (timerRef.value) {
-        timerRef.value.reset()
-      }
-      
-      // Auto-play next question
-      if (voiceEnabled.value) {
-        await nextTick()
-        playCurrentQuestion()
-      }
-    } else {
-      // All questions answered - finish interview
-      finishInterview()
-    }
-  } catch (err) {
-    error.value = `保存答案失败: ${err}`
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const nextQuestion = () => {
-  // Stop voice playback and recording when switching questions
-  tts.stop()
-  if (stt) {
-    stt.stop()
-  }
-  
-  if (currentQuestionIndex.value < questions.value.length - 1) {
-    currentQuestionIndex.value++
-    currentAnswer.value = ''
-  }
-}
-
-const nextQuestionAfterFeedback = async () => {
-  // Trigger follow-up analysis if enabled
-  if (followUpSettings.value.enabled) {
-    await analyzeForFollowUp()
-  } else {
-    proceedToNextQuestion()
-  }
-}
-
-const finishInterview = async () => {
-  // Generate comprehensive report
-  await generateFinalReport()
-}
-
-const generateFinalReport = async () => {
-  if (!currentSessionId.value) {
-    error.value = '未找到面试会话'
-    return
-  }
-  
-  reportLoading.value = true
-  error.value = ''
-  
-  try {
-    // Show report modal immediately with loading state
-    showFinalReport.value = true
-    // ReportView component will handle loading and generating report
-  } catch (err) {
-    error.value = `生成报告失败: ${err}`
-    showFinalReport.value = false
-  } finally {
-    reportLoading.value = false
-  }
-}
-
-const closeCompletionAnimation = () => {
-  showCompletionAnimation.value = false
-  showFinalReport.value = false
-  reportLoading.value = false
-  
-  // Reset state
-  currentStep.value = 'input'
-  resume.value = ''
-  jobDescription.value = ''
-  questions.value = []
-  currentQuestionIndex.value = 0
-  currentAnswer.value = ''
-  currentFeedback.value = ''
-  currentSessionId.value = null
-  answersHistory.value = []
-  conversationHistory.value = []
-  followUpCount.value = 0
-}
-
-/**
- * Timer event handlers
- */
-const handleTimerTimeout = () => {
-  if (timerSettings.value.autoSubmit && currentAnswer.value.trim()) {
-    submitAnswer()
-  } else {
-    alert('时间到！请尽快提交答案。')
-  }
-}
-
-const handleTimerWarning = () => {
-  if (timerSettings.value.showWarning) {
-    console.log('⚠️ 警告：剩余时间不足30秒')
-  }
-}
-
-const handleTimerSettingsChange = (newSettings: TimerConfig) => {
-  timerSettings.value = newSettings
-  TimerSettingsManager.saveSettings(newSettings)
-  
-  // Restart timer if currently running
-  if (timerRef.value?.isRunning && currentStep.value === 'interview') {
-    timerRef.value.reset()
-  }
-}
-
-const toggleTimerSettings = () => {
-  showTimerSettings.value = !showTimerSettings.value
-}
-
-/**
- * Follow-up event handlers
- */
-const handleFollowUpSettingsChange = (newSettings: FollowUpSettings) => {
-  followUpSettings.value = newSettings
-  FollowUpSettingsManager.saveSettings(newSettings)
-}
-
-const toggleFollowUpSettings = () => {
-  showFollowUpSettings.value = !showFollowUpSettings.value
-}
-
-const analyzeForFollowUp = async () => {
-  if (!followUpSettings.value.enabled || followUpCount.value >= followUpSettings.value.maxFollowUps) {
-    proceedToNextQuestion()
-    return
-  }
-
-  isLoading.value = true
-  error.value = ''
-
-  try {
-    const historyText = conversationHistory.value
-      .map(turn => `${turn.role === 'interviewer' ? 'Interviewer' : 'Candidate'}: ${turn.content}`)
-      .join('\n\n')
-
-    const currentPersona = InterviewerPersonaManager.getPersona()
-    const analysisJson = await invoke<string>('analyze_for_followup', {
-      originalQuestion: questions.value[currentQuestionIndex.value],
-      answer: currentAnswer.value,
-      conversationHistory: historyText,
-      jobDescription: jobDescription.value,
-      maxFollowups: followUpSettings.value.maxFollowUps - followUpCount.value,
-      preferredTypes: followUpSettings.value.preferredTypes,
-      persona: currentPersona
-    })
-
-    followUpAnalysis.value = JSON.parse(analysisJson)
-
-    if (followUpSettings.value.autoTrigger && followUpAnalysis.value?.shouldFollowUp) {
-      currentStep.value = 'followup'
-    } else {
-      proceedToNextQuestion()
-    }
-  } catch (err) {
-    console.error('Follow-up analysis failed:', err)
-    proceedToNextQuestion()
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const selectFollowUpQuestion = (question: string, type: FollowUpType) => {
-  // Add interviewer's follow-up to history
-  conversationHistory.value.push({
-    role: 'interviewer',
-    content: question,
-    timestamp: Date.now(),
-    questionType: type
-  })
-
-  // Update current question to follow-up
-  questions.value[currentQuestionIndex.value] = question
-  currentAnswer.value = ''
-  followUpCount.value++
-  currentStep.value = 'interview'
-
-  // Restart timer if enabled
-  if (timerRef.value) {
-    timerRef.value.reset()
-  }
-}
-
-const skipFollowUp = () => {
-  proceedToNextQuestion()
-}
-
-const proceedToNextQuestion = () => {
-  // Stop voice playback and recording when switching questions
-  tts.stop()
-  if (stt) {
-    stt.stop()
-  }
-  
-  if (currentQuestionIndex.value < questions.value.length - 1) {
-    currentQuestionIndex.value++
-    currentAnswer.value = ''
-    currentStep.value = 'interview'
-    followUpCount.value = 0
-    conversationHistory.value = []
-
-    if (voiceEnabled.value) {
-      nextTick().then(() => playCurrentQuestion())
-    }
-  } else {
-    finishInterview()
-  }
-}
-
-const clearConversationHistory = () => {
-  conversationHistory.value = []
-}
-
-/**
  * Handle onboarding completion
  */
 const handleOnboardingComplete = () => {
-  OnboardingManager.markCompleted()
+  settingsStore.completeOnboarding()
   showOnboarding.value = false
 }
 
-/**
- * Handle onboarding skip
- */
 const handleOnboardingSkip = () => {
-  OnboardingManager.markCompleted()
+  settingsStore.completeOnboarding()
   showOnboarding.value = false
 }
+
 </script>
 
 <style scoped>

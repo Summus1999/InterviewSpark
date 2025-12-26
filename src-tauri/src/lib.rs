@@ -40,6 +40,21 @@ struct AppState {
     rag: Arc<RagService>,
 }
 
+/// Helper function to safely retrieve API client from state
+/// 
+/// # Arguments
+/// * `state` - Application state containing the API client
+/// 
+/// # Returns
+/// * `Ok(SiliconFlowClient)` - Cloned API client if initialized
+/// * `Err(String)` - Error message if lock fails or client not initialized
+fn get_client(state: &State<AppState>) -> Result<SiliconFlowClient, String> {
+    state.api_client.lock()
+        .map_err(|e| format!("Failed to acquire API client lock: {}", e))?
+        .clone()
+        .ok_or_else(|| "API client not initialized. Please configure API key in settings.".to_string())
+}
+
 /// Greet command for testing IPC communication between frontend and backend
 /// 
 /// # Arguments
@@ -71,10 +86,7 @@ async fn generate_questions(
     persona: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
     
     // Try to retrieve similar questions from knowledge base as context
     let context = if !state.rag.is_empty() {
@@ -129,10 +141,7 @@ async fn analyze_answer(
     persona: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
     
     client
         .analyze_answer(&question, &answer, &job_description, &persona)
@@ -165,10 +174,7 @@ async fn analyze_for_followup(
     persona: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
     
     client
         .analyze_for_followup(
@@ -195,10 +201,7 @@ async fn analyze_answer_stream(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
 
     // Prepare streaming messages
     let system_prompt = SFClient::get_persona_prompt(&persona);
@@ -813,10 +816,7 @@ async fn generate_comprehensive_report(
     _use_premium_model: Option<bool>,  // Deprecated: always uses flagship model
     state: State<'_, AppState>,
 ) -> Result<SessionReport, String> {
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
     
     // Always use flagship model for best quality analysis
     ReportGenerator::generate_report_with_model(session_id, &client, state.db.as_ref(), Some(FLAGSHIP_MODEL))
@@ -979,10 +979,7 @@ async fn get_or_generate_best_answer(
     }
     
     // Get API client
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
     
     // Get historical answers for this question
     let historical_answers = state.db.get_all_answers_for_question(&question)
@@ -1214,7 +1211,8 @@ async fn update_api_config(
     api_key: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut client_guard = state.api_client.lock().unwrap();
+    let mut client_guard = state.api_client.lock()
+        .map_err(|e| format!("Failed to acquire API client lock: {}", e))?;
     
     if api_key.is_empty() {
         return Err("API key cannot be empty".to_string());
@@ -1235,10 +1233,7 @@ async fn transcribe_audio(
     audio_base64: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let client = {
-        let client_guard = state.api_client.lock().unwrap();
-        client_guard.clone().ok_or("API client not initialized")?
-    };
+    let client = get_client(&state)?;
     
     // Decode base64 audio data
     let audio_data = base64::engine::general_purpose::STANDARD
@@ -1351,13 +1346,7 @@ async fn init_knowledge_base_background(
     }
     
     // Get API client
-    let api_client = {
-        let client_guard = state.api_client.lock().unwrap();
-        match client_guard.clone() {
-            Some(c) => c,
-            None => return Err("API client not configured".to_string()),
-        }
-    };
+    let api_client = get_client(&state)?;
     
     // Clone rag service for async task
     let rag = state.rag.clone();

@@ -5,6 +5,23 @@ use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
 
+/// Macro to safely acquire database connection lock
+/// 
+/// # Example
+/// ```
+/// with_conn!(self, |conn| {
+///     conn.execute("INSERT INTO ...", params![])?;
+///     Ok(conn.last_insert_rowid())
+/// })
+/// ```
+macro_rules! with_conn {
+    ($self:expr, |$conn:ident| $body:expr) => {{
+        let $conn = $self.conn.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire database lock: {}", e))?;
+        $body
+    }};
+}
+
 /// Repository for database operations
 pub struct Repository {
     conn: Mutex<Connection>,
@@ -22,90 +39,96 @@ impl Repository {
 
     /// Save a new resume
     pub fn save_resume(&self, title: String, content: String) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let timestamp = now();
-        
-        conn.execute(
-            "INSERT INTO resumes (title, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-            params![title, content, timestamp, timestamp],
-        )?;
-        
-        Ok(conn.last_insert_rowid())
+        with_conn!(self, |conn| {
+            let timestamp = now();
+            
+            conn.execute(
+                "INSERT INTO resumes (title, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+                params![title, content, timestamp, timestamp],
+            )?;
+            
+            Ok(conn.last_insert_rowid())
+        })
     }
 
     /// Get all resumes
     pub fn get_resumes(&self) -> Result<Vec<Resume>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, user_id, title, content, created_at, updated_at FROM resumes ORDER BY updated_at DESC"
-        )?;
-        
-        let resumes = stmt
-            .query_map([], |row| {
-                Ok(Resume {
-                    id: Some(row.get(0)?),
-                    user_id: row.get(1)?,
-                    title: row.get(2)?,
-                    content: row.get(3)?,
-                    created_at: row.get(4)?,
-                    updated_at: row.get(5)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        
-        Ok(resumes)
+        with_conn!(self, |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, user_id, title, content, created_at, updated_at FROM resumes ORDER BY updated_at DESC"
+            )?;
+            
+            let resumes = stmt
+                .query_map([], |row| {
+                    Ok(Resume {
+                        id: Some(row.get(0)?),
+                        user_id: row.get(1)?,
+                        title: row.get(2)?,
+                        content: row.get(3)?,
+                        created_at: row.get(4)?,
+                        updated_at: row.get(5)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            
+            Ok(resumes)
+        })
     }
 
     /// Delete a resume by ID
     pub fn delete_resume(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute("DELETE FROM resumes WHERE id = ?1", params![id])?;
-        Ok(())
+        with_conn!(self, |conn| {
+            conn.execute("DELETE FROM resumes WHERE id = ?1", params![id])?;
+            Ok(())
+        })
     }
 
     // ===== Job Description Operations =====
 
     /// Save a new job description
     pub fn save_job_description(&self, title: String, content: String) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let timestamp = now();
-        
-        conn.execute(
-            "INSERT INTO job_descriptions (title, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-            params![title, content, timestamp, timestamp],
-        )?;
-        
-        Ok(conn.last_insert_rowid())
+        with_conn!(self, |conn| {
+            let timestamp = now();
+            
+            conn.execute(
+                "INSERT INTO job_descriptions (title, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+                params![title, content, timestamp, timestamp],
+            )?;
+            
+            Ok(conn.last_insert_rowid())
+        })
     }
 
     /// Get all job descriptions
     pub fn get_job_descriptions(&self) -> Result<Vec<JobDescription>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, user_id, title, content, created_at, updated_at FROM job_descriptions ORDER BY updated_at DESC"
-        )?;
-        
-        let jds = stmt
-            .query_map([], |row| {
-                Ok(JobDescription {
-                    id: Some(row.get(0)?),
-                    user_id: row.get(1)?,
-                    title: row.get(2)?,
-                    content: row.get(3)?,
-                    created_at: row.get(4)?,
-                    updated_at: row.get(5)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        
-        Ok(jds)
+        with_conn!(self, |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, user_id, title, content, created_at, updated_at FROM job_descriptions ORDER BY updated_at DESC"
+            )?;
+            
+            let jds = stmt
+                .query_map([], |row| {
+                    Ok(JobDescription {
+                        id: Some(row.get(0)?),
+                        user_id: row.get(1)?,
+                        title: row.get(2)?,
+                        content: row.get(3)?,
+                        created_at: row.get(4)?,
+                        updated_at: row.get(5)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            
+            Ok(jds)
+        })
     }
 
     /// Delete a job description by ID
     pub fn delete_job_description(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute("DELETE FROM job_descriptions WHERE id = ?1", params![id])?;
-        Ok(())
+        with_conn!(self, |conn| {
+            conn.execute("DELETE FROM job_descriptions WHERE id = ?1", params![id])?;
+            Ok(())
+        })
     }
 
     // ===== Interview Session Operations =====
