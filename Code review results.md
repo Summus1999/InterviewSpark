@@ -14,11 +14,13 @@
 [cache.rs](./src-tauri/src/analysis/cache.rs) 仅支持 dashboard 和 analytics 两种数据类型。
 
 存在问题:
+
 - 无法扩展到其他高频查询（question bank、user profile、session list）
 - TTL 硬编码，无法动态调整
 - 缺少缓存命中率监控
 
 改进建议:
+
 ```rust
 // 实现通用泛型缓存层
 use std::collections::HashMap;
@@ -52,6 +54,7 @@ impl<K: Hash + Eq, V: Clone> GenericCache<K, V> {
 历史记录、题库管理在数据量 > 100 条时出现卡顿。
 
 改进方案:
+
 ```bash
 npm install vue-virtual-scroller
 ```
@@ -81,6 +84,7 @@ npm install vue-virtual-scroller
 [lib.rs L80-96](./src-tauri/src/lib.rs#L80-L96) RAG 检索和问题生成串行执行。
 
 改进方案:
+
 ```rust
 // 使用 tokio::join! 并行执行
 let (context_result, _) = tokio::join!(
@@ -106,6 +110,7 @@ let (context_result, _) = tokio::join!(
 相同参数的 AI 请求可能短时间内重复调用。
 
 改进方案:
+
 ```rust
 use std::collections::HashMap;
 use tokio::sync::RwLock;
@@ -140,6 +145,7 @@ impl RequestDeduplicator {
 从 Tauri 返回的数据未验证格式，可能导致类型不匹配。
 
 改进方案:
+
 ```typescript
 import { z } from 'zod'
 
@@ -157,42 +163,6 @@ export async function getSessions(): Promise<InterviewSession[]> {
 ```
 
 优先级: P2
-
----
-
-### 3.2 测试覆盖率低
-
-现状分析:  
-项目中未发现单元测试文件，关键业务逻辑缺少测试保障。
-
-改进建议:
-```rust
-// src-tauri/src/analysis/scoring.rs
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_calculate_technical_depth() {
-        let answer = "使用Redis缓存提升性能，采用主从复制保证高可用...";
-        let score = ScoringEngine::calculate_technical_depth(answer);
-        assert!(score >= 7.0 && score <= 10.0);
-    }
-    
-    #[tokio::test]
-    async fn test_rag_retrieval() {
-        let service = RagService::new_in_memory().await.unwrap();
-        // 添加测试数据
-        service.add_document("test", "sample question").await.unwrap();
-        // 验证检索结果
-        let results = service.search("question", 1).await.unwrap();
-        assert_eq!(results.len(), 1);
-    }
-}
-```
-
-优先级: P2  
-预期收益: 降低回归 bug 风险
 
 ---
 

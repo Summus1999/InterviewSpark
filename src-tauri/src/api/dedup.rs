@@ -13,6 +13,7 @@ pub struct RequestDeduplicator {
     pending: Arc<RwLock<HashMap<String, Arc<Mutex<Option<Result<String, String>>>>>>>,
 }
 
+#[allow(dead_code)]
 impl RequestDeduplicator {
     /// Create new request deduplicator
     pub fn new() -> Self {
@@ -89,7 +90,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_deduplication() {
-        let dedup = RequestDeduplicator::new();
+        let dedup = Arc::new(RequestDeduplicator::new());
         let counter = Arc::new(AtomicU32::new(0));
 
         let key = "test-key".to_string();
@@ -97,7 +98,7 @@ mod tests {
         // Spawn multiple concurrent requests with same key
         let mut handles = vec![];
         for _ in 0..5 {
-            let dedup_clone = Arc::new(dedup);
+            let dedup_clone = dedup.clone();
             let counter_clone = counter.clone();
             let key_clone = key.clone();
             

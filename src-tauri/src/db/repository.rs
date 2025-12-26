@@ -37,6 +37,7 @@ impl Repository {
 
     /// Execute operations within a transaction
     /// Automatically commits on success, rolls back on error
+    #[allow(dead_code)]
     pub fn with_transaction<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&Transaction) -> Result<R>,

@@ -33,6 +33,7 @@ use base64::Engine;
 /// The repository is wrapped in Arc for shared ownership across threads
 /// The cache manager provides high-performance caching for frequently accessed data
 /// The rag service provides lazy-initialized knowledge retrieval capabilities
+#[allow(dead_code)]
 struct AppState {
     api_client: Mutex<Option<SiliconFlowClient>>,
     db: Arc<Repository>,

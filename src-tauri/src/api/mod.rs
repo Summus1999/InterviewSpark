@@ -11,4 +11,5 @@ pub mod dedup;
 pub use siliconflow::SiliconFlowClient;
 #[allow(unused_imports)]
 pub use retry::RetryPolicy;
+#[allow(unused_imports)]
 pub use dedup::RequestDeduplicator;

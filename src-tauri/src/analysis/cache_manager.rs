@@ -8,11 +8,13 @@ use std::time::{Duration, SystemTime};
 
 /// Cache entry with value and expiration time
 #[derive(Clone)]
+#[allow(dead_code)]
 struct CacheEntry<V: Clone> {
     value: V,
     expires_at: SystemTime,
 }
 
+#[allow(dead_code)]
 impl<V: Clone> CacheEntry<V> {
     fn new(value: V, ttl: Duration) -> Self {
         Self {
@@ -27,6 +29,7 @@ impl<V: Clone> CacheEntry<V> {
 }
 
 /// Generic cache with TTL support
+#[allow(dead_code)]
 pub struct GenericCache<K: Hash + Eq, V: Clone> {
     cache: Arc<Mutex<HashMap<K, CacheEntry<V>>>>,
     default_ttl: Duration,
@@ -34,6 +37,7 @@ pub struct GenericCache<K: Hash + Eq, V: Clone> {
     misses: Arc<Mutex<u64>>,
 }
 
+#[allow(dead_code)]
 impl<K: Hash + Eq, V: Clone> GenericCache<K, V> {
     /// Create new cache with default TTL
     pub fn new(default_ttl_secs: u64) -> Self {
@@ -120,6 +124,7 @@ impl<K: Hash + Eq, V: Clone> GenericCache<K, V> {
 
 /// Cache statistics
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CacheStats {
     pub entries: usize,
     pub hits: u64,

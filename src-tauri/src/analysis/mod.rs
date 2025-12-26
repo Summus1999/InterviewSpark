@@ -40,6 +40,7 @@ pub use backup::{BackupManager, BackupData};
 // Cache types are part of the public API
 #[allow(unused_imports)]
 pub use cache::{CacheManager, CacheEntry};
+#[allow(unused_imports)]
 pub use cache_manager::{GenericCache, CacheStats};
 pub use profile::ProfileGenerator;
 pub use recommendation::RecommendationEngine;
