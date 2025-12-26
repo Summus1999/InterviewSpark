@@ -1,6 +1,6 @@
 {
   "name": "interviewspark",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "InterviewSpark is an AI-powered Windows desktop application designed to revolutionize job interview preparation. By leveraging the Siliconflow API, it provides personalized mock interviews, generates real-time feedback on your content and delivery, and offers actionable insights to help you build confidence and excel in your actual interviews",
   "main": "index.js",
   "scripts": {
