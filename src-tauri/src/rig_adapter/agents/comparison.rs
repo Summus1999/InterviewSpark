@@ -1,5 +1,7 @@
 // Answer comparison agent
 
+#![allow(dead_code)]
+
 use crate::rig_adapter::SiliconFlowProvider;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

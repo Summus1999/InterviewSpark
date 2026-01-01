@@ -12,6 +12,7 @@ pub struct AgentScheduler {
 }
 
 /// Rotation strategy enum
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum RotationStrategy {
     /// Fixed order rotation: Tech → HR → Business → Tech...
@@ -45,6 +46,7 @@ impl AgentScheduler {
     }
     
     /// Switch to next agent
+    #[allow(dead_code)]
     pub fn next_agent(&mut self) -> &dyn InterviewerAgent {
         match self.rotation_strategy {
             RotationStrategy::FixedOrder => {
@@ -135,6 +137,7 @@ impl AgentScheduler {
     }
     
     /// Check if should follow up
+    #[allow(dead_code)]
     pub async fn should_follow_up(
         &self,
         answer: &str,

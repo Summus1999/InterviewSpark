@@ -15,6 +15,7 @@ pub enum InterviewPhase {
 }
 
 /// Phase configuration
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PhaseConfig {
     pub phase: InterviewPhase,
@@ -142,6 +143,7 @@ impl InterviewStateMachine {
     }
     
     /// Get primary role for current phase
+    #[allow(dead_code)]
     pub fn current_primary_role(&self) -> Option<InterviewerRole> {
         self.phase_configs
             .iter()

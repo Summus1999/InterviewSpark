@@ -19,6 +19,7 @@ pub enum InterviewerRole {
 }
 
 /// Interviewer Agent unified interface
+#[allow(dead_code)]
 #[async_trait]
 pub trait InterviewerAgent: Send + Sync {
     /// Get agent role
@@ -46,6 +47,7 @@ pub trait InterviewerAgent: Send + Sync {
 }
 
 /// Interview context
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct InterviewContext {
     pub resume: String,
@@ -77,4 +79,3 @@ pub struct AnalysisResult {
 pub use tech::TechInterviewer;
 pub use hr::HRInterviewer;
 pub use business::BusinessInterviewer;
-pub use comparison::{ComparisonAgent, ComparisonResult, PointComparison, MatchStatus};

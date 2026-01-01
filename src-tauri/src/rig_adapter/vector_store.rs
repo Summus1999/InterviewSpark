@@ -15,6 +15,7 @@ pub struct VectorStoreAdapter {
 
 impl VectorStoreAdapter {
     /// Create new adapter with real RAG services
+    #[allow(dead_code)]
     pub fn new(
         embedding_service: Arc<EmbeddingService>,
         vector_store: Arc<VectorStore>,

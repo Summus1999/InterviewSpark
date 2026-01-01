@@ -22,11 +22,11 @@ use rag::{KnowledgeStatus, KnowledgeStats, BootstrapResult, BootstrapProgress, R
 use rag::vectordb::SearchResult;
 use rig_adapter::{
     SiliconFlowProvider, VectorStoreAdapter,
-    InterviewerRole, InterviewContext, ConversationTurn, AnalysisResult,
+    InterviewContext, ConversationTurn, AnalysisResult,
     AgentScheduler, RotationStrategy,
     InterviewStateMachine, InterviewPhase, InterviewProgress,
 };
-use rig_adapter::agents::{TechInterviewer, HRInterviewer, BusinessInterviewer, ComparisonAgent};
+use rig_adapter::agents::{TechInterviewer, HRInterviewer, BusinessInterviewer};
 use futures::StreamExt;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;

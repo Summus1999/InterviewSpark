@@ -12,6 +12,7 @@ pub struct SiliconFlowProvider {
 
 impl SiliconFlowProvider {
     /// Create provider from API key and model
+    #[allow(dead_code)]
     pub fn new(api_key: String, model: String) -> Result<Self> {
         Ok(Self {
             inner: SiliconFlowClient::new(api_key, model)?,
@@ -26,6 +27,7 @@ impl SiliconFlowProvider {
     }
     
     /// Get underlying client for direct access
+    #[allow(dead_code)]
     pub fn client(&self) -> &SiliconFlowClient {
         &self.inner
     }
@@ -80,6 +82,7 @@ impl SiliconFlowCompletionModel {
     }
     
     /// Generate completion from messages
+    #[allow(dead_code)]
     pub async fn chat(&self, messages: Vec<ChatMessage>) -> Result<String> {
         let mut all_messages = Vec::new();
         
