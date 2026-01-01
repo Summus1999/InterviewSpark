@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   FOLLOWUP_SETTINGS: 'interview-spark-followup',
   API_SETTINGS: 'interview-spark-api',
   INTERVIEWER_PERSONA: 'interview-spark-persona',
+  MULTI_AGENT_MODE: 'interview-spark-multi-agent',
   TOOLTIP_DISMISSED: 'tooltip_dismissed_ids'
 }
 
@@ -144,6 +145,9 @@ export const useSettingsStore = defineStore('settings', () => {
   
   // Dismissed tooltips
   const dismissedTooltips = ref<string[]>(loadFromStorage(STORAGE_KEYS.TOOLTIP_DISMISSED, []))
+  
+  // Multi-agent mode
+  const multiAgentMode = ref<boolean>(loadFromStorage(STORAGE_KEYS.MULTI_AGENT_MODE, false))
 
   // Computed values
   const isDarkTheme = computed(() => theme.value === 'dark')
@@ -248,6 +252,12 @@ export const useSettingsStore = defineStore('settings', () => {
     dismissedTooltips.value = []
     localStorage.removeItem(STORAGE_KEYS.TOOLTIP_DISMISSED)
   }
+  
+  // Multi-agent mode actions
+  function setMultiAgentMode(enabled: boolean) {
+    multiAgentMode.value = enabled
+    saveToStorage(STORAGE_KEYS.MULTI_AGENT_MODE, enabled)
+  }
 
   // Reset all settings
   function resetAllSettings() {
@@ -282,6 +292,7 @@ export const useSettingsStore = defineStore('settings', () => {
     apiSettings,
     persona,
     dismissedTooltips,
+    multiAgentMode,
 
     // Computed
     isDarkTheme,
@@ -323,6 +334,9 @@ export const useSettingsStore = defineStore('settings', () => {
     isTooltipDismissed,
     dismissTooltip,
     resetTooltips,
+    
+    // Multi-agent mode actions
+    setMultiAgentMode,
 
     // Global reset
     resetAllSettings

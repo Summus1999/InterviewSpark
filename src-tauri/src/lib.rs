@@ -10,6 +10,7 @@ mod api;
 mod db;
 mod analysis;
 mod rag;
+mod rig_adapter;
 
 use api::SiliconFlowClient;
 use api::siliconflow::SiliconFlowClient as SFClient;
@@ -19,10 +20,57 @@ use analysis::{ContentAnalyzer, ScoringEngine, STARScoringEngine, ReportGenerato
 #[allow(unused_imports)]
 use rag::{KnowledgeStatus, KnowledgeStats, BootstrapResult, BootstrapProgress, RagService};
 use rag::vectordb::SearchResult;
+use rig_adapter::{
+    SiliconFlowProvider, VectorStoreAdapter,
+    InterviewerRole, InterviewContext, ConversationTurn, AnalysisResult,
+    AgentScheduler, RotationStrategy,
+    InterviewStateMachine, InterviewPhase, InterviewProgress,
+};
+use rig_adapter::agents::{TechInterviewer, HRInterviewer, BusinessInterviewer, ComparisonAgent};
 use futures::StreamExt;
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use tokio::sync::Mutex as TokioMutex;
 use tauri::{State, Emitter};
 use base64::Engine;
+
+/// Multi-Agent interview session
+struct MultiAgentSession {
+    context: InterviewContext,
+    scheduler: AgentScheduler,
+    state_machine: InterviewStateMachine,
+}
+
+impl MultiAgentSession {
+    fn new(
+        resume: String,
+        job_description: String,
+        provider: SiliconFlowProvider,
+        vector_store: VectorStoreAdapter,
+    ) -> Self {
+        // Create agents
+        let tech = Box::new(TechInterviewer::new(provider.clone(), vector_store.clone())) as Box<dyn rig_adapter::agents::InterviewerAgent>;
+        let hr = Box::new(HRInterviewer::new(provider.clone())) as Box<dyn rig_adapter::agents::InterviewerAgent>;
+        let business = Box::new(BusinessInterviewer::new(provider)) as Box<dyn rig_adapter::agents::InterviewerAgent>;
+        
+        let agents = vec![tech, hr, business];
+        let scheduler = AgentScheduler::new(agents).with_strategy(RotationStrategy::PhaseBased);
+        let state_machine = InterviewStateMachine::new();
+        
+        let context = InterviewContext {
+            resume,
+            job_description,
+            conversation_history: Vec::new(),
+            current_phase: InterviewPhase::WarmUp,
+        };
+        
+        Self {
+            context,
+            scheduler,
+            state_machine,
+        }
+    }
+}
 
 /// Application state holding the SiliconFlow API client and database
 /// 
@@ -42,6 +90,8 @@ struct AppState {
     // Generic caches for different data types
     session_cache: Arc<analysis::GenericCache<i64, db::models::InterviewSession>>,
     question_bank_cache: Arc<analysis::GenericCache<String, Vec<db::models::QuestionBankItem>>>,
+    // Multi-Agent interview sessions (session_id -> session)
+    multi_agent_sessions: Arc<TokioMutex<HashMap<String, MultiAgentSession>>>,
 }
 
 /// Helper function to safely retrieve API client from state
@@ -1620,6 +1670,112 @@ async fn sync_question_bank_to_knowledge(
     Ok(format!("Synced: {}, Skipped: {}", success, skipped))
 }
 
+// ============ Multi-Agent Interview Commands ============
+
+/// Start multi-agent interview session
+#[tauri::command]
+async fn start_multi_agent_interview(
+    resume: String,
+    job_description: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let session_id = format!("ma-{}", chrono::Utc::now().timestamp_millis());
+    
+    // Initialize provider
+    let provider = SiliconFlowProvider::from_env()
+        .map_err(|e| format!("Failed to initialize provider: {}", e))?;
+    
+    // Create vector store adapter (RAG is optional, use no-op if unavailable)
+    let vector_store = VectorStoreAdapter::new_noop();
+    log::info!("Multi-Agent session started without RAG (optional enhancement)");
+    
+    // Create session
+    let session = MultiAgentSession::new(
+        resume,
+        job_description,
+        provider,
+        vector_store,
+    );
+    
+    // Store session
+    state.multi_agent_sessions.lock().await
+        .insert(session_id.clone(), session);
+    
+    Ok(session_id)
+}
+
+/// Get next interview question
+#[tauri::command]
+async fn multi_agent_next_question(
+    session_id: String,
+    state: State<'_, AppState>,
+) -> Result<ConversationTurn, String> {
+    let mut sessions = state.multi_agent_sessions.lock().await;
+    
+    let session = sessions.get_mut(&session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+    
+    // Select agent by current phase
+    session.scheduler.select_by_phase(session.state_machine.current_phase());
+    
+    // Execute turn
+    session.scheduler.execute_turn(&mut session.context)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Submit user answer
+#[tauri::command]
+async fn multi_agent_submit_answer(
+    session_id: String,
+    answer: String,
+    state: State<'_, AppState>,
+) -> Result<AnalysisResult, String> {
+    let mut sessions = state.multi_agent_sessions.lock().await;
+    
+    let session = sessions.get_mut(&session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+    
+    // Process answer
+    let analysis = session.scheduler.process_answer(&mut session.context, answer)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    // Update state machine
+    session.state_machine.record_question();
+    if let Some(_new_phase) = session.state_machine.maybe_advance(&analysis) {
+        log::info!("Phase advanced to {:?}", session.state_machine.current_phase());
+    }
+    
+    Ok(analysis)
+}
+
+/// Get interview progress
+#[tauri::command]
+async fn multi_agent_get_progress(
+    session_id: String,
+    state: State<'_, AppState>,
+) -> Result<InterviewProgress, String> {
+    let sessions = state.multi_agent_sessions.lock().await;
+    
+    let session = sessions.get(&session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+    
+    Ok(session.state_machine.progress())
+}
+
+/// End multi-agent interview session
+#[tauri::command]
+async fn multi_agent_end_session(
+    session_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.multi_agent_sessions.lock().await
+        .remove(&session_id);
+    
+    Ok(())
+}
+
 /// Recursively copy directory contents
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) {
     if let Err(e) = std::fs::create_dir_all(dst) {
@@ -1717,6 +1873,8 @@ pub fn run() {
         // Initialize generic caches with appropriate TTLs
         session_cache: Arc::new(analysis::GenericCache::new(300)), // 5 min TTL
         question_bank_cache: Arc::new(analysis::GenericCache::new(600)), // 10 min TTL
+        // Initialize multi-agent sessions storage
+        multi_agent_sessions: Arc::new(TokioMutex::new(HashMap::new())),
       });
       
       Ok(())
@@ -1802,7 +1960,13 @@ pub fn run() {
       delete_knowledge_entry,
       search_knowledge_by_keyword,
       import_knowledge_file,
-      sync_question_bank_to_knowledge
+      sync_question_bank_to_knowledge,
+      // Multi-Agent interview commands
+      start_multi_agent_interview,
+      multi_agent_next_question,
+      multi_agent_submit_answer,
+      multi_agent_get_progress,
+      multi_agent_end_session
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

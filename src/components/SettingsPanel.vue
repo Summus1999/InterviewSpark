@@ -49,6 +49,23 @@
           </select>
           <p class="persona-description">{{ personaDescription }}</p>
         </div>
+        
+        <div class="settings-item">
+          <label class="settings-label">多面试官模式</label>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox" 
+              id="multi-agent-toggle" 
+              v-model="localMultiAgentMode"
+              class="toggle-checkbox"
+            />
+            <label for="multi-agent-toggle" class="toggle-label">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-text">{{ localMultiAgentMode ? '已开启' : '已关闭' }}</span>
+          </div>
+          <p class="feature-description">多位面试官联合评估（技术+HR+业务）</p>
+        </div>
 
         <div class="settings-item">
           <label class="settings-label">API Key</label>
@@ -104,6 +121,7 @@ const confettiRef = ref<InstanceType<typeof ConfettiSuccess> | null>(null)
 const localTheme = ref(settingsStore.theme)
 const localPersona = ref(settingsStore.persona)
 const localSettings = ref({ ...settingsStore.apiSettings })
+const localMultiAgentMode = ref(settingsStore.multiAgentMode)
 
 const availableModels = AVAILABLE_MODELS
 
@@ -121,6 +139,7 @@ onMounted(() => {
   localTheme.value = settingsStore.theme
   localPersona.value = settingsStore.persona
   localSettings.value = { ...settingsStore.apiSettings }
+  localMultiAgentMode.value = settingsStore.multiAgentMode
   
   // Add click outside listener
   document.addEventListener('click', handleClickOutside)
@@ -155,6 +174,7 @@ async function handleSave() {
     // Save to Pinia store (auto-syncs to localStorage)
     settingsStore.updateApiSettings(localSettings.value)
     settingsStore.setPersona(localPersona.value)
+    settingsStore.setMultiAgentMode(localMultiAgentMode.value)
     
     // Update backend configuration via Tauri command
     await invoke('update_api_config', {
@@ -355,6 +375,69 @@ function handleResetOnboarding() {
 .save-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Toggle switch styles */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--border-light);
+  border-radius: 24px;
+  transition: all 0.3s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-slider {
+  background: var(--accent-primary);
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-slider::before {
+  transform: translateX(24px);
+}
+
+.toggle-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.feature-description {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  line-height: 1.4;
 }
 
 /* Transition animations */

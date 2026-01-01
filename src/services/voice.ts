@@ -42,13 +42,15 @@ export class TextToSpeech {
   }
 
   /**
-   * Speak text
+   * Speak text with role-specific voice
+   * @param text - Text to speak
+   * @param role - Interviewer role (Technical, HR, Business)
+   * @param options - Additional speech options
    */
-  async speak(text: string, options?: {
+  async speakWithRole(text: string, role?: 'Technical' | 'HR' | 'Business', options?: {
     rate?: number
     pitch?: number
     volume?: number
-    voice?: SpeechSynthesisVoice
   }): Promise<void> {
     await this.init()
 
@@ -60,18 +62,34 @@ export class TextToSpeech {
       
       // Set options
       this.utterance.rate = options?.rate ?? 1.0
-      this.utterance.pitch = options?.pitch ?? 1.0
       this.utterance.volume = options?.volume ?? 1.0
-
-      // Select voice
-      if (options?.voice) {
-        this.utterance.voice = options.voice
-      } else {
-        // Auto-select Chinese voice
-        const chineseVoices = this.getChineseVoices()
-        if (chineseVoices.length > 0) {
+      
+      // Set role-specific voice characteristics
+      const chineseVoices = this.getChineseVoices()
+      if (chineseVoices.length > 0) {
+        if (role === 'Technical') {
+          // Technical: lower pitch, moderate speed
+          this.utterance.pitch = options?.pitch ?? 0.9
+          // Prefer male voice if available
+          const maleVoice = chineseVoices.find(v => v.name.includes('Male') || v.name.includes('\u7537'))
+          this.utterance.voice = maleVoice || chineseVoices[0]
+        } else if (role === 'HR') {
+          // HR: higher pitch, friendly
+          this.utterance.pitch = options?.pitch ?? 1.1
+          // Prefer female voice if available
+          const femaleVoice = chineseVoices.find(v => v.name.includes('Female') || v.name.includes('\u5973'))
+          this.utterance.voice = femaleVoice || chineseVoices[1] || chineseVoices[0]
+        } else if (role === 'Business') {
+          // Business: neutral pitch, clear
+          this.utterance.pitch = options?.pitch ?? 1.0
+          this.utterance.voice = chineseVoices[2] || chineseVoices[0]
+        } else {
+          // Default
+          this.utterance.pitch = options?.pitch ?? 1.0
           this.utterance.voice = chineseVoices[0]
         }
+      } else {
+        this.utterance.pitch = options?.pitch ?? 1.0
       }
 
       this.utterance.onend = () => resolve()

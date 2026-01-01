@@ -1,5 +1,10 @@
 <template>
   <div class="interview-mode-container">
+    <!-- Multi-Agent Mode -->
+    <MultiAgentInterview v-if="settingsStore.multiAgentMode" />
+    
+    <!-- Single Interviewer Mode -->
+    <template v-else>
     <!-- Step 1: Input Resume and JD -->
     <div v-if="interview.currentStep.value === 'input'" class="step-content">
       <ResumeInput v-model="interview.resume.value" />
@@ -173,11 +178,13 @@
       :message="`完成了 ${interview.answersHistory.value.length} 个问题的回答，继续加油！`"
       @close="interview.closeReport"
     />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import MultiAgentInterview from './MultiAgentInterview.vue'
 import ResumeInput from './ResumeInput.vue'
 import JobDescription from './JobDescription.vue'
 import QuestionList from './QuestionList.vue'
