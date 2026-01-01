@@ -127,7 +127,7 @@ npm run build:release
 
 构建产物位于 `src-tauri/target/release/bundle/`：
 
-- NSIS 安装包: `bundle/nsis/InterviewSpark_1.0.2_x64-setup.exe`
+- NSIS 安装包: `bundle/nsis/InterviewSpark_1.3.0_x64-setup.exe`
 - 独立 exe（build:dev/test）: `target/release/app.exe` 或 `target/debug/app.exe`
 
 ### 传统构建方式
@@ -196,7 +196,7 @@ src/                      # Vue 3 前端代码
   App.vue                 # 主应用组件（面试流程控制）
   main.ts                 # 前端入口
   vite-env.d.ts           # TypeScript 类型声明
-  components/             # Vue 组件（40个）
+  components/             # Vue 组件（44个）
     ResumeInput.vue       # 简历输入组件（支持模板选择）
     JobDescription.vue    # 岗位描述输入组件（支持模板选择）
     TemplateSelector.vue  # 简历/JD模板选择器
@@ -269,6 +269,26 @@ src-tauri/                # Rust 后端代码
       recommendation.rs   # 智能推荐
       industry.rs         # 行业对比分析
       trends.rs           # 趋势计算
+    rag/                  # RAG 知识增强模块
+      mod.rs              # 模块入口
+      embedding.rs        # 嵌入模型服务
+      vectordb.rs         # HNSW 向量数据库
+      service.rs          # RAG 服务封装
+      bootstrap.rs        # 模型初始化
+      import.rs           # 知识导入
+      retriever.rs        # 检索接口
+    rig_adapter/          # rig 框架适配层
+      mod.rs              # 模块入口
+      provider.rs         # SiliconFlow Provider
+      vector_store.rs     # VectorStore 适配器
+      scheduler.rs        # Agent 调度器
+      state_machine.rs    # 面试阶段状态机
+      agents/             # Multi-Agent 定义
+        mod.rs            # Agent 模块入口
+        tech.rs           # 技术面试官
+        hr.rs             # HR 面试官
+        business.rs       # 业务面试官
+        comparison.rs     # 答案对比 Agent
   Cargo.toml              # Rust 依赖配置
   tauri.conf.json         # Tauri 应用配置
 data/                     # 数据存储目录
